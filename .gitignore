@@ -1,0 +1,42 @@
+# Ignore build outputs
+output/
+build/
+*.msi
+*.wixobj
+*.wixpdb
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if any)
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# Downloaded installers (cache)
+cache/
+downloads/
+
+# Test files
+test-output/

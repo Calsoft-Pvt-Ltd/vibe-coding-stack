@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "components": {
+    "vscode": {
+      "enabled": true,
+      "version": "latest",
+      "downloadUrl": "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user",
+      "installerType": "msi",
+      "installPath": "%LOCALAPPDATA%\\Programs\\Microsoft VS Code"
+    },
+    "cline": {
+      "enabled": true,
+      "extensionId": "saoudrizwan.claude-dev",
+      "version": "latest",
+      "marketplaceUrl": "https://marketplace.visualstudio.com/items?itemName=saoudrizwan.claude-dev"
+    },
+    "lmstudio": {
+      "enabled": true,
+      "version": "latest",
+      "downloadUrl": "https://releases.lmstudio.ai/windows/latest/LM-Studio-Setup.exe",
+      "installerType": "exe",
+      "installPath": "%LOCALAPPDATA%\\LM-Studio"
+    },
+    "model": {
+      "enabled": true,
+      "name": "deepseek-coder-6.7b-instruct",
+      "huggingfaceRepo": "TheBloke/deepseek-coder-6.7b-instruct-GGUF",
+      "filename": "deepseek-coder-6.7b-instruct.Q4_K_M.gguf",
+      "downloadUrl": "https://huggingface.co/TheBloke/deepseek-coder-6.7b-instruct-GGUF/resolve/main/deepseek-coder-6.7b-instruct.Q4_K_M.gguf",
+      "size": "4.1GB",
+      "sha256": ""
+    }
+  },
+  "clineConfig": {
+    "apiProvider": "lmstudio",
+    "lmstudioUrl": "http://localhost:1234/v1",
+    "modelName": "deepseek-coder-6.7b-instruct",
+    "temperature": 0.7,
+    "maxTokens": 4096
+  },
+  "installer": {
+    "productName": "Local Vibe Coding Stack",
+    "manufacturer": "Local Vibe",
+    "installDir": "LocalVibeCodingStack",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  }
+}

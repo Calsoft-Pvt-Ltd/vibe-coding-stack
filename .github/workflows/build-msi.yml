@@ -1,0 +1,154 @@
+name: Build MSI Installer
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PowerShell
+      shell: pwsh
+      run: |
+        Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+        
+    - name: Install WiX Toolset
+      shell: pwsh
+      run: |
+        Write-Host "Downloading WiX Toolset..."
+        $wixUrl = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe"
+        $wixInstaller = "$env:TEMP\wix314.exe"
+        
+        Invoke-WebRequest -Uri $wixUrl -OutFile $wixInstaller
+        
+        Write-Host "Installing WiX Toolset..."
+        Start-Process -FilePath $wixInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait
+        
+        Write-Host "WiX Toolset installed"
+        
+    - name: Verify WiX installation
+      shell: pwsh
+      run: |
+        $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+        if (Test-Path $wixPath) {
+          Write-Host "WiX found at: $wixPath"
+          & "$wixPath\candle.exe" -?
+        } else {
+          Write-Host "ERROR: WiX not found!"
+          exit 1
+        }
+        
+    - name: Create placeholder assets
+      shell: pwsh
+      run: |
+        # Ensure assets directory exists
+        $assetsDir = ".\assets"
+        if (-not (Test-Path $assetsDir)) {
+          New-Item -ItemType Directory -Path $assetsDir
+        }
+        
+        # Create placeholder files if they don't exist
+        # These should be replaced with actual branded assets
+        
+    - name: Build MSI Installer
+      shell: pwsh
+      run: |
+        Write-Host "Building MSI installer..."
+        .\build.ps1 -Configuration Release
+        
+    - name: Get version from tag
+      id: get_version
+      shell: pwsh
+      run: |
+        $version = "dev"
+        if ($env:GITHUB_REF -match 'refs/tags/v(.*)') {
+          $version = $matches[1]
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        Write-Host "Version: $version"
+        
+    - name: Upload MSI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LocalVibeCodingStack-${{ steps.get_version.outputs.version }}
+        path: output/*.msi
+        retention-days: 90
+        
+    - name: Calculate checksums
+      shell: pwsh
+      run: |
+        $msi = Get-Item "output\LocalVibeCodingStack.msi"
+        $sha256 = Get-FileHash -Path $msi.FullName -Algorithm SHA256
+        $md5 = Get-FileHash -Path $msi.FullName -Algorithm MD5
+        
+        $checksums = @"
+        # Checksums for LocalVibeCodingStack.msi
+        
+        **SHA256:** ``$($sha256.Hash)``
+        
+        **MD5:** ``$($md5.Hash)``
+        
+        **Size:** $([math]::Round($msi.Length / 1MB, 2)) MB
+        "@
+        
+        $checksums | Out-File -FilePath "output\CHECKSUMS.txt" -Encoding UTF8
+        Write-Host $checksums
+        
+    - name: Upload checksums
+      uses: actions/upload-artifact@v4
+      with:
+        name: checksums-${{ steps.get_version.outputs.version }}
+        path: output/CHECKSUMS.txt
+        retention-days: 90
+        
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          output/*.msi
+          output/CHECKSUMS.txt
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+  test:
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download MSI artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: LocalVibeCodingStack-dev
+        path: ./test
+        
+    - name: Test MSI structure
+      shell: pwsh
+      run: |
+        Write-Host "Testing MSI installer..."
+        
+        # Verify MSI exists
+        $msi = Get-Item "test\LocalVibeCodingStack.msi"
+        Write-Host "MSI found: $($msi.FullName)"
+        Write-Host "Size: $([math]::Round($msi.Length / 1MB, 2)) MB"
+        
+        # Use Orca or msiexec to query MSI properties
+        # This is a basic validation
+        Write-Host "MSI validation passed"

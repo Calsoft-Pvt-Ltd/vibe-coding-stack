@@ -1,0 +1,37 @@
+{
+  "name": "local-vibe-coding-stack",
+  "version": "1.0.0",
+  "description": "Automated Windows installer for local AI code assistant stack",
+  "main": "index.js",
+  "scripts": {
+    "build": "powershell -ExecutionPolicy Bypass -File .\\build.ps1",
+    "build:clean": "powershell -ExecutionPolicy Bypass -File .\\build.ps1 -Clean",
+    "install": "powershell -ExecutionPolicy Bypass -File .\\scripts\\install.ps1",
+    "uninstall": "powershell -ExecutionPolicy Bypass -File .\\scripts\\uninstall.ps1",
+    "test": "powershell -ExecutionPolicy Bypass -File .\\scripts\\install.ps1 -SkipModelDownload"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/local-vibe-coding-stack.git"
+  },
+  "keywords": [
+    "vscode",
+    "ai",
+    "cline",
+    "lm-studio",
+    "local-llm",
+    "installer",
+    "automation",
+    "windows"
+  ],
+  "author": "Local Vibe",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/local-vibe-coding-stack/issues"
+  },
+  "homepage": "https://github.com/yourusername/local-vibe-coding-stack#readme",
+  "devDependencies": {},
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
