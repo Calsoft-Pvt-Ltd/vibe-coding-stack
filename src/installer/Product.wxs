@@ -136,6 +136,22 @@
                        Value="1" 
                        KeyPath="yes"/>
       </Component>
+
+      <!-- Directory cleanup -->
+      <Component Id="CleanupDirectories" Guid="77777777-7777-7777-7777-777777777777">
+        <RemoveFile Id="RemoveScriptsFiles" Directory="ScriptsFolder" Name="*" On="uninstall" />
+        <RemoveFile Id="RemoveScriptsFolder" Directory="ScriptsFolder" On="uninstall" />
+        <RemoveFile Id="RemoveAssetsFiles" Directory="AssetsFolder" Name="*" On="uninstall" />
+        <RemoveFile Id="RemoveAssetsFolder" Directory="AssetsFolder" On="uninstall" />
+        <RemoveFile Id="RemoveLogsFiles" Directory="LogsFolder" Name="*" On="uninstall" />
+        <RemoveFile Id="RemoveLogsFolder" Directory="LogsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\LocalVibe\CodingStack"
+                       Name="CleanupDirectories"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes"/>
+      </Component>
     </ComponentGroup>
 
     <!-- Desktop shortcut -->
