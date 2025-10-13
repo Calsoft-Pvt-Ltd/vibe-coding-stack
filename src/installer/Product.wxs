@@ -186,9 +186,11 @@
 
     <!-- Set progress text -->
     <CustomAction Id="SetInstallProgressText" 
+                  Property="ProgressText"
                   Value="Installing VS Code, Cline, LM Studio, and AI models. This may take 15-30 minutes..." />
     
     <CustomAction Id="SetUninstallProgressText" 
+                  Property="ProgressText"
                   Value="Removing Local Vibe Coding Stack components..." />
 
     <!-- Installation sequence -->
