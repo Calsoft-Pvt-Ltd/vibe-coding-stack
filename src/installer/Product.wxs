@@ -43,8 +43,6 @@
     <!-- Add/Remove Programs properties -->
     <Property Id="ARPHELPLINK" Value="https://github.com/yourusername/local-vibe-coding-stack" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/yourusername/local-vibe-coding-stack" />
-    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
-    <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
     
     <!-- Check for PowerShell version -->
     <Property Id="POWERSHELLVERSION">
