@@ -36,13 +36,9 @@
       <![CDATA[Installed OR POWERSHELLVERSION >= "5.1"]]>
     </Condition>
 
-    <!-- Icon for Add/Remove Programs -->
-    <Icon Id="icon.ico" SourceFile="assets\icon.ico"/>
-    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
-    
     <!-- Add/Remove Programs properties -->
-    <Property Id="ARPHELPLINK" Value="https://github.com/yourusername/local-vibe-coding-stack" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/yourusername/local-vibe-coding-stack" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Calsoft-Pvt-Ltd/vibe-coding-stack" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Calsoft-Pvt-Ltd/vibe-coding-stack" />
     
     <!-- Check for PowerShell version -->
     <Property Id="POWERSHELLVERSION">
@@ -128,8 +124,7 @@
                   Name="Local Vibe Coding"
                   Description="Launch VS Code with Local AI Assistant"
                   Target="[LocalAppDataFolder]Programs\Microsoft VS Code\Code.exe"
-                  WorkingDirectory="DesktopFolder"
-                  Icon="icon.ico" />
+                  WorkingDirectory="DesktopFolder" />
         <RegistryValue Root="HKCU" 
                        Key="Software\LocalVibe\CodingStack" 
                        Name="DesktopShortcut" 
@@ -147,8 +142,7 @@
                   Name="Local Vibe Coding Stack"
                   Description="Launch VS Code with Local AI Assistant"
                   Target="[LocalAppDataFolder]Programs\Microsoft VS Code\Code.exe"
-                  WorkingDirectory="ProgramMenuFolder"
-                  Icon="icon.ico" />
+                  WorkingDirectory="ProgramMenuFolder" />
         <Shortcut Id="UninstallShortcutId"
                   Name="Uninstall Local Vibe Coding Stack"
                   Description="Uninstall the application"
@@ -210,11 +204,6 @@
     <!-- Use built-in UI -->
     <UIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-    
-    <!-- Custom welcome dialog text -->
-    <WixVariable Id="WixUILicenseRtf" Value="assets\license.rtf" />
-    <WixVariable Id="WixUIBannerBmp" Value="assets\banner.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="assets\dialog.bmp" />
 
   </Product>
 </Wix>
