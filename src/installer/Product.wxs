@@ -6,18 +6,18 @@
   <?define Manufacturer = "Local Vibe" ?>
   <?define UpgradeCode = "12345678-1234-1234-1234-123456789012" ?>
   
-  <Product Id="*" 
-           Name="$(var.ProductName)" 
-           Language="1033" 
-           Version="$(var.ProductVersion)" 
-           Manufacturer="$(var.Manufacturer)" 
-           UpgradeCode="$(var.UpgradeCode)">
-    
-    <Package InstallerVersion="500" 
-             Compressed="yes" 
-             InstallScope="perUser"
-             Description="Local AI Code Assistant Stack"
-             Comments="Installs VS Code, Cline, LM Studio, and AI models" />
+  <Package ProductCode="*"
+      Name="$(var.ProductName)"
+      Language="1033"
+      Version="$(var.ProductVersion)"
+      Manufacturer="$(var.Manufacturer)"
+      UpgradeCode="$(var.UpgradeCode)"
+      InstallerVersion="500"
+      Compressed="yes"
+      Scope="perUser">
+
+    <SummaryInformation Description="Local AI Code Assistant Stack"
+         Comments="Installs VS Code, Cline, LM Studio, and AI models" />
 
     <!-- Prevent downgrade -->
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
@@ -238,8 +238,8 @@
     </InstallUISequence>
 
     <!-- Use built-in UI -->
-    <UIRef Id="WixUI_InstallDir" />
+  <WixUIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
-  </Product>
+  </Package>
 </Wix>
