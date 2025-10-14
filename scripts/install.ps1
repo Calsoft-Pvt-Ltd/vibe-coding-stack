@@ -118,28 +118,28 @@ if ($Config.components.vscode.enabled) {
         $VSCodeInstaller = Join-Path $TempDir "VSCodeSetup.exe"
         
         if (Download-File -Url $Config.components.vscode.downloadUrl -OutputPath $VSCodeInstaller -Description "VS Code") {
-            Write-Log "Installing VS Code..."
-            Write-Log "Running: msiexec.exe /i `"$VSCodeInstaller`" /qn /norestart"
+            Write-Log "Installing VS Code (EXE installer)..."
+            Write-Log "Running: `"$VSCodeInstaller`" /VERYSILENT /NORESTART /MERGETASKS=!runcode"
             
+            # VS Code user installer supports these silent install parameters
             $InstallArgs = @(
-                "/i"
-                "`"$VSCodeInstaller`""
-                "/qn"
-                "/norestart"
+                "/VERYSILENT"           # Run installer silently
+                "/NORESTART"            # Don't restart after installation
+                "/MERGETASKS=!runcode"  # Don't launch VS Code after install
+                "/SUPPRESSMSGBOXES"     # Suppress message boxes
             )
             
-            $Process = Start-Process "msiexec.exe" -ArgumentList $InstallArgs -Wait -NoNewWindow -PassThru
+            $Process = Start-Process -FilePath $VSCodeInstaller -ArgumentList $InstallArgs -Wait -NoNewWindow -PassThru
             
             if ($Process.ExitCode -eq 0) {
                 Write-Log "VS Code installation completed successfully"
-            } elseif ($Process.ExitCode -eq 3010) {
-                Write-Log "VS Code installation completed (reboot required but suppressed)" "WARN"
             } else {
                 Write-Log "VS Code installation returned exit code: $($Process.ExitCode)" "WARN"
-                Write-Log "Installation may have failed. Common causes:"
-                Write-Log "  - MSI file corrupted or incomplete download"
+                Write-Log "Installation may have encountered issues. Common causes:"
+                Write-Log "  - Installer file corrupted or incomplete download"
                 Write-Log "  - Insufficient permissions"
                 Write-Log "  - Another installation in progress"
+                Write-Log "  - Antivirus blocking the installer"
             }
             
             Write-Log "VS Code installation process finished"
