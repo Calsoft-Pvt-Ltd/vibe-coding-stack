@@ -1,5 +1,5 @@
 # Build script for Local Vibe Coding Stack MSI Installer
-# Requires WiX Toolset 3.14+ to be installed
+# Requires WiX Toolset 6.0+ (wix.exe CLI) to be installed
 
 param(
     [string]$Configuration = "Release",
@@ -11,22 +11,33 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "=== Building Local Vibe Coding Stack MSI Installer ===" -ForegroundColor Cyan
 
-# Check for WiX Toolset
-$WixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
-if (-not (Test-Path $WixPath)) {
-    $WixPath = "${env:ProgramFiles}\WiX Toolset v3.14\bin"
+# Locate WiX CLI
+$WixExe = (Get-Command "wix.exe" -ErrorAction SilentlyContinue | Select-Object -First 1)?.Source
+
+if (-not $WixExe) {
+    $FallbackPaths = @(
+        "${env:ProgramFiles}\WiX Toolset v6\bin\wix.exe",
+        "${env:ProgramFiles(x86)}\WiX Toolset v6\bin\wix.exe",
+        "${env:ProgramFiles}\WiX Toolset\wix.exe",
+        "${env:ProgramFiles}\WiX Toolset\bin\wix.exe"
+    )
+
+    foreach ($Path in $FallbackPaths) {
+        if (Test-Path $Path) {
+            $WixExe = $Path
+            break
+        }
+    }
 }
 
-if (-not (Test-Path $WixPath)) {
-    Write-Host "ERROR: WiX Toolset not found!" -ForegroundColor Red
-    Write-Host "Please install WiX Toolset from: https://wixtoolset.org/releases/" -ForegroundColor Yellow
+if (-not $WixExe) {
+    Write-Host "ERROR: WiX Toolset CLI (wix.exe) not found!" -ForegroundColor Red
+    Write-Host "Install it via: dotnet tool install --global wix --version 6.*" -ForegroundColor Yellow
+    Write-Host "Documentation: https://wixtoolset.org/docs/" -ForegroundColor Yellow
     exit 1
 }
 
-$CandleExe = Join-Path $WixPath "candle.exe"
-$LightExe = Join-Path $WixPath "light.exe"
-
-Write-Host "Found WiX Toolset at: $WixPath" -ForegroundColor Green
+Write-Host "Found WiX CLI at: $WixExe" -ForegroundColor Green
 
 # Create output directory
 if ($Clean -and (Test-Path $OutputDir)) {
@@ -57,52 +68,45 @@ if (-not (Test-Path $AssetsDir)) {
 # are not required for the build. Add them to the assets folder for 
 # custom branding if desired.
 
-# Step 1: Compile WiX source files (.wxs -> .wixobj)
-Write-Host "`nStep 1: Compiling WiX source files..." -ForegroundColor Cyan
+# Step 1: Ensure required WiX extensions are available
+Write-Host "`nStep 1: Preparing WiX extensions..." -ForegroundColor Cyan
+$RequiredExtensions = @(
+    "WixToolset.UI.wixext"
+)
+
+foreach ($Extension in $RequiredExtensions) {
+    Write-Host "Ensuring extension $Extension is installed..."
+    & $WixExe "extension" "add" $Extension
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: Failed to add extension $Extension" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+}
+
+Write-Host "Extensions ready." -ForegroundColor Green
+
+# Step 2: Build MSI
+Write-Host "`nStep 2: Building MSI with WiX 6..." -ForegroundColor Cyan
 
 $WxsFile = ".\src\installer\Product.wxs"
-$WixObjFile = Join-Path $BuildDir "Product.wixobj"
-
-$CandleArgs = @(
-    "-nologo"
-    "-ext", "WixUtilExtension"
-    "-out", $WixObjFile
-    $WxsFile
-)
-
-Write-Host "Running: candle.exe $($CandleArgs -join ' ')"
-& $CandleExe $CandleArgs
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Compilation failed!" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-
-Write-Host "Compilation successful!" -ForegroundColor Green
-
-# Step 2: Link WiX object files (.wixobj -> .msi)
-Write-Host "`nStep 2: Linking MSI installer..." -ForegroundColor Cyan
-
 $MsiFile = Join-Path $OutputDir "LocalVibeCodingStack.msi"
 
-$LightArgs = @(
-    "-nologo"
-    "-ext", "WixUIExtension"
-    "-ext", "WixUtilExtension"
-    "-cultures:en-US"
+$BuildArgs = @(
+    "build"
+    $WxsFile
+    "-ext", "WixToolset.UI.wixext"
     "-out", $MsiFile
-    $WixObjFile
 )
 
-Write-Host "Running: light.exe $($LightArgs -join ' ')"
-& $LightExe $LightArgs
+Write-Host "Running: wix $($BuildArgs -join ' ')"
+& $WixExe $BuildArgs
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Linking failed!" -ForegroundColor Red
+    Write-Host "ERROR: WiX build failed!" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-Write-Host "Linking successful!" -ForegroundColor Green
+Write-Host "WiX build successful!" -ForegroundColor Green
 
 # Cleanup build directory
 Write-Host "`nCleaning up temporary files..."

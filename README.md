@@ -21,8 +21,11 @@ An automated Windows installer that sets up a complete local AI code assistant e
 
 ### Requirements
 
-1. Install [WiX Toolset v3.14+](https://wixtoolset.org/releases/)
-2. Install [.NET Framework 4.7.2+](https://dotnet.microsoft.com/download/dotnet-framework)
+1. Install [.NET SDK 6.0+](https://dotnet.microsoft.com/download) (required for WiX CLI)
+2. Install WiX Toolset 6 CLI:
+	```powershell
+	dotnet tool install --global wix --version 6.0.0
+	```
 3. PowerShell 5.1+ (included in Windows 10/11)
 
 ### Build Steps

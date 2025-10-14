@@ -14,7 +14,7 @@ Thank you for your interest in contributing! Here's how you can help.
 
 - Windows 10/11
 - PowerShell 5.1+
-- WiX Toolset 3.14+
+- WiX Toolset 6 CLI (`dotnet tool install --global wix --version 6.0.0`)
 - Git
 
 ### Building Locally

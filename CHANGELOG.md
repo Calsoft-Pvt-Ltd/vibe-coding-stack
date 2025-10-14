@@ -60,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical
 - PowerShell-based automation
-- WiX Toolset 3.14+ for MSI generation
+- WiX Toolset 6 CLI for MSI generation
 - GitHub Actions for CI/CD
 - Configurable component system
 

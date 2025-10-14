@@ -22,31 +22,23 @@ jobs:
       run: |
         Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
         
-    - name: Install WiX Toolset
+    - name: Install WiX Toolset 6 CLI
       shell: pwsh
       run: |
-        Write-Host "Downloading WiX Toolset..."
-        $wixUrl = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe"
-        $wixInstaller = "$env:TEMP\wix314.exe"
-        
-        Invoke-WebRequest -Uri $wixUrl -OutFile $wixInstaller
-        
-        Write-Host "Installing WiX Toolset..."
-        Start-Process -FilePath $wixInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait
-        
-        Write-Host "WiX Toolset installed"
+        Write-Host "Installing WiX Toolset CLI via dotnet tool..."
+        dotnet tool install --global wix --version 6.0.0
+        $wixToolPath = "$env:USERPROFILE\.dotnet\tools"
+        Write-Host "WiX CLI installed to: $wixToolPath"
+        Write-Host "Adding WiX CLI to PATH for subsequent steps"
+        $wixToolPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         
     - name: Verify WiX installation
       shell: pwsh
       run: |
-        $wixPath = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
-        if (Test-Path $wixPath) {
-          Write-Host "WiX found at: $wixPath"
-          & "$wixPath\candle.exe" -?
-        } else {
-          Write-Host "ERROR: WiX not found!"
-          exit 1
-        }
+        Write-Host "WiX CLI version:"
+        wix --version
+        Write-Host "Listing available WiX extensions..."
+        wix extension list
         
     - name: Create placeholder assets
       shell: pwsh

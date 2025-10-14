@@ -21,7 +21,7 @@ The **Local Vibe Coding Stack** is a complete, automated Windows installer that 
 
 ## Technical Stack
 
-- **Installer Framework**: WiX Toolset 3.14 (generates MSI)
+- **Installer Framework**: WiX Toolset 6 CLI (generates MSI)
 - **Automation**: PowerShell scripts
 - **Configuration**: JSON-based
 - **CI/CD**: GitHub Actions
@@ -158,7 +158,7 @@ The entire stack is configured via `assets/installer-config.json`:
 
 ```powershell
 # Prerequisites
-# - Install WiX Toolset 3.14+
+# - Install WiX CLI 6.0+ (dotnet tool install --global wix --version 6.0.0)
 # - Install PowerShell 5.1+ (included in Windows 10/11)
 
 # Build
@@ -266,7 +266,7 @@ A successful installation means:
 ## Troubleshooting
 
 ### Build Issues
-- Install WiX Toolset: `choco install wixtoolset`
+- Install WiX CLI: `dotnet tool install --global wix --version 6.0.0`
 - Check PowerShell version: `$PSVersionTable.PSVersion`
 
 ### Install Issues
