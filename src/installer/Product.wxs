@@ -222,18 +222,16 @@
       <Custom Action="SetInstallProgressText" After="CostFinalize" Condition="NOT Installed" />
     </InstallUISequence>
 
+    <!-- Launch conditions -->
+    <Launch Message="This application requires Windows 10 or later." Condition="Installed OR (VersionNT &gt;= 603)" />
+    <Launch Message="This application requires PowerShell 5.1 or later." Condition="Installed OR POWERSHELLVERSION &gt;= &quot;5.1&quot;" />
+
     <!-- Use built-in UI -->
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+    </UI>
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
   </Package>
-
-  <!-- Launch conditions moved outside Package for WiX v4 -->
-  <Launch Message="This application requires Windows 10 or later." Condition="Installed OR (VersionNT &gt;= 603)" />
-  <Launch Message="This application requires PowerShell 5.1 or later." Condition="Installed OR POWERSHELLVERSION &gt;= &quot;5.1&quot;" />
-
-  <!-- UI Reference -->
-  <UI>
-    <UIRef Id="WixUI_InstallDir" />
-  </UI>
 
 </Wix>
