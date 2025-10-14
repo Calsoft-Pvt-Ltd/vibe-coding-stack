@@ -139,7 +139,7 @@ if ($Config.components.vscode.enabled) {
             
             while (-not $VSCodeReady -and $RetryCount -lt $MaxRetries) {
                 Start-Sleep -Seconds 2
-                if (Test-Path "$VSCodePath\Code.exe" -and Test-Path "$VSCodePath\bin\code.cmd") {
+                if ((Test-Path "$VSCodePath\Code.exe") -and (Test-Path "$VSCodePath\bin\code.cmd")) {
                     $VSCodeReady = $true
                     Write-Log "VS Code binaries found and ready"
                 } else {
