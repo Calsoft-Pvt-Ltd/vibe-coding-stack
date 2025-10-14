@@ -25,16 +25,6 @@
     <!-- Embed cab in MSI -->
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Check for minimum OS version (Windows 10) -->
-    <Condition Message="This application requires Windows 10 or later.">
-      <![CDATA[Installed OR (VersionNT >= 603)]]>
-    </Condition>
-
-    <!-- Check for PowerShell 5.1+ -->
-    <Condition Message="This application requires PowerShell 5.1 or later.">
-      <![CDATA[Installed OR POWERSHELLVERSION >= "5.1"]]>
-    </Condition>
-
     <!-- Add/Remove Programs properties -->
     <Property Id="ARPHELPLINK" Value="https://github.com/Calsoft-Pvt-Ltd/vibe-coding-stack" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Calsoft-Pvt-Ltd/vibe-coding-stack" />
@@ -62,23 +52,18 @@
     </Feature>
 
     <!-- Installation directory structure -->
-    <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="LocalAppDataFolder">
-        <Directory Id="INSTALLFOLDER" Name="LocalVibeCodingStack">
-          <Directory Id="ScriptsFolder" Name="scripts" />
-          <Directory Id="AssetsFolder" Name="assets" />
-          <Directory Id="LogsFolder" Name="logs" />
-        </Directory>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="LocalVibeCodingStack">
+        <Directory Id="ScriptsFolder" Name="scripts" />
+        <Directory Id="AssetsFolder" Name="assets" />
+        <Directory Id="LogsFolder" Name="logs" />
       </Directory>
-      
-      <!-- Desktop shortcut -->
-      <Directory Id="DesktopFolder" Name="Desktop" />
-      
-      <!-- Start Menu -->
-      <Directory Id="ProgramMenuFolder">
-        <Directory Id="ApplicationProgramsFolder" Name="Local Vibe Coding Stack" />
-      </Directory>
-    </Directory>
+    </StandardDirectory>
+    
+    <!-- Start Menu -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Local Vibe Coding Stack" />
+    </StandardDirectory>
 
     <!-- Component groups -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
@@ -154,7 +139,7 @@
     </ComponentGroup>
 
     <!-- Desktop shortcut -->
-    <DirectoryRef Id="DesktopFolder">
+    <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Guid="55555555-5555-5555-5555-555555555555">
         <Shortcut Id="DesktopShortcutId"
                   Name="Local Vibe Coding"
@@ -167,9 +152,9 @@
                        Type="integer" 
                        Value="1" 
                        KeyPath="yes"/>
-        <RemoveFolder Id="RemoveDesktopFolder" Directory="DesktopFolder" On="uninstall"/>
+        <RemoveFolder Id="RemoveDesktopFolder" On="uninstall"/>
       </Component>
-    </DirectoryRef>
+    </StandardDirectory>
 
     <!-- Start Menu shortcut -->
     <DirectoryRef Id="ApplicationProgramsFolder">
@@ -224,22 +209,31 @@
     <!-- Installation sequence -->
     <InstallExecuteSequence>
       <!-- Install -->
-      <Custom Action="SetInstallProgressText" After="InstallInitialize">NOT Installed</Custom>
-      <Custom Action="RunInstallScript" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="SetInstallProgressText" After="InstallInitialize" Condition="NOT Installed" />
+      <Custom Action="RunInstallScript" Before="InstallFinalize" Condition="NOT Installed" />
       
       <!-- Uninstall -->
-      <Custom Action="SetUninstallProgressText" Before="RemoveFiles">REMOVE="ALL"</Custom>
-      <Custom Action="RunUninstallScript" Before="RemoveFiles">REMOVE="ALL"</Custom>
+      <Custom Action="SetUninstallProgressText" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
+      <Custom Action="RunUninstallScript" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />
     </InstallExecuteSequence>
 
     <!-- UI sequence for progress text -->
     <InstallUISequence>
-      <Custom Action="SetInstallProgressText" After="CostFinalize">NOT Installed</Custom>
+      <Custom Action="SetInstallProgressText" After="CostFinalize" Condition="NOT Installed" />
     </InstallUISequence>
 
     <!-- Use built-in UI -->
-  <WixUIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
   </Package>
+
+  <!-- Launch conditions moved outside Package for WiX v4 -->
+  <Launch Message="This application requires Windows 10 or later." Condition="Installed OR (VersionNT &gt;= 603)" />
+  <Launch Message="This application requires PowerShell 5.1 or later." Condition="Installed OR POWERSHELLVERSION &gt;= &quot;5.1&quot;" />
+
+  <!-- UI Reference -->
+  <UI>
+    <UIRef Id="WixUI_InstallDir" />
+  </UI>
+
 </Wix>
