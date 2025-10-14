@@ -181,18 +181,24 @@
 
     <!-- Custom actions -->
     
+    <!-- Set custom action data for deferred execution -->
+    <CustomAction Id="SetInstallScriptData"
+                  Property="RunInstallScript"
+                  Value="INSTALLFOLDER=[INSTALLFOLDER]"
+                  Execute="immediate" />
+    
     <!-- Run installation script after files are installed -->
     <CustomAction Id="RunInstallScript"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="powershell.exe -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot;"
+                  ExeCommand="cmd.exe /c &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot; &gt; &quot;[INSTALLFOLDER]logs\install.log&quot; 2&gt;&amp;1&quot;"
                   Execute="deferred"
-                  Impersonate="yes"
-                  Return="check" />
+                  Impersonate="no"
+                  Return="ignore" />
 
     <!-- Run uninstallation script before uninstall -->
     <CustomAction Id="RunUninstallScript"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="powershell.exe -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\uninstall.ps1&quot; -Force"
+                  ExeCommand="cmd.exe /c &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\uninstall.ps1&quot; -Force &gt; &quot;[INSTALLFOLDER]logs\uninstall.log&quot; 2&gt;&amp;1&quot;"
                   Execute="deferred"
                   Impersonate="yes"
                   Return="ignore" />
@@ -210,7 +216,8 @@
     <InstallExecuteSequence>
       <!-- Install -->
       <Custom Action="SetInstallProgressText" After="InstallInitialize" Condition="NOT Installed" />
-      <Custom Action="RunInstallScript" Before="InstallFinalize" Condition="NOT Installed" />
+      <Custom Action="SetInstallScriptData" Before="RunInstallScript" Condition="NOT Installed" />
+      <Custom Action="RunInstallScript" After="InstallFiles" Condition="NOT Installed" />
       
       <!-- Uninstall -->
       <Custom Action="SetUninstallProgressText" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot;" />

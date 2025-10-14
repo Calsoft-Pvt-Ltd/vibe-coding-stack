@@ -45,8 +45,16 @@ The MSI installer will be generated in the `output` directory.
 
 1. Run `LocalVibeCodingStack.msi`
 2. Follow the installation wizard
-3. Wait for all components to download and install
+3. Wait for all components to download and install (15-30 minutes)
 4. Launch VS Code when complete
+
+**Installation Logs**: If the installation encounters issues, check the detailed logs at:
+- `%LOCALAPPDATA%\LocalVibeCodingStack\logs\install.log`
+
+You can also run the MSI with verbose logging:
+```powershell
+msiexec /i LocalVibeCodingStack.msi /l*v install-verbose.log
+```
 
 ## Configuration
 
@@ -73,6 +81,30 @@ Use Windows "Add or Remove Programs" or run:
 ```powershell
 msiexec /x {PRODUCT-GUID} /qn
 ```
+
+**Uninstall Logs**: Check uninstallation logs at:
+- `%LOCALAPPDATA%\LocalVibeCodingStack\logs\uninstall.log`
+
+## Troubleshooting
+
+If installation fails:
+
+1. **Check installation logs**: Open `%LOCALAPPDATA%\LocalVibeCodingStack\logs\install.log` to see detailed error messages
+2. **Run with verbose MSI logging**: 
+   ```powershell
+   msiexec /i LocalVibeCodingStack.msi /l*v msi-install.log
+   ```
+3. **Verify prerequisites**:
+   - Windows 10/11 (64-bit)
+   - Administrator privileges
+   - 10GB+ free disk space
+   - Internet connection active
+   - PowerShell 5.1+: Check with `$PSVersionTable.PSVersion`
+
+4. **Common issues**:
+   - Network timeouts during downloads - Retry installation
+   - Insufficient disk space - Free up space and retry
+   - Antivirus blocking - Temporarily disable and retry
 
 ## License
 
