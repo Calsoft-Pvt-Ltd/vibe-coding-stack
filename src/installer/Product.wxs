@@ -190,7 +190,7 @@
     <!-- Run installation script after files are installed -->
     <CustomAction Id="RunInstallScript"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /c &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot; &gt; &quot;[INSTALLFOLDER]logs\install.log&quot; 2&gt;&amp;1&quot;"
+                  ExeCommand="cmd.exe /k &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot; 2&gt;&amp;1 | Tee-Object -FilePath &quot;[INSTALLFOLDER]logs\install.log&quot; &amp;&amp; pause&quot;"
                   Execute="deferred"
                   Impersonate="no"
                   Return="ignore" />

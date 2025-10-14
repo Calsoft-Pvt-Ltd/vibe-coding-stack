@@ -131,12 +131,37 @@ if ($Config.components.vscode.enabled) {
             Start-Process "msiexec.exe" -ArgumentList $InstallArgs -Wait -NoNewWindow
             Write-Log "VS Code installation completed"
             
+            # Wait for VS Code installation to fully complete and files to be written
+            Write-Log "Waiting for VS Code to be fully installed..."
+            $MaxRetries = 30
+            $RetryCount = 0
+            $VSCodeReady = $false
+            
+            while (-not $VSCodeReady -and $RetryCount -lt $MaxRetries) {
+                Start-Sleep -Seconds 2
+                if (Test-Path "$VSCodePath\Code.exe" -and Test-Path "$VSCodePath\bin\code.cmd") {
+                    $VSCodeReady = $true
+                    Write-Log "VS Code binaries found and ready"
+                } else {
+                    $RetryCount++
+                    Write-Log "Waiting for VS Code files... ($RetryCount/$MaxRetries)"
+                }
+            }
+            
+            if (-not $VSCodeReady) {
+                Write-Log "VS Code installation may not have completed successfully" "WARN"
+            }
+            
             # Add to PATH
             $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
             $CodePath = "$VSCodePath\bin"
             if ($UserPath -notlike "*$CodePath*") {
                 [Environment]::SetEnvironmentVariable("Path", "$UserPath;$CodePath", "User")
                 Write-Log "Added VS Code to PATH"
+                
+                # Refresh PATH in current session
+                $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
+                Write-Log "Refreshed PATH in current session"
             }
 
             Complete-Step -Number $StepNumber -Title $StepTitle
@@ -151,9 +176,6 @@ if ($Config.components.vscode.enabled) {
     Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
 }
 
-# Wait for VS Code to be available
-Start-Sleep -Seconds 5
-
 # 2. Install Cline Extension
 $StepNumber = 2
 $StepTitle = "Install Cline extension"
@@ -164,13 +186,32 @@ if ($Config.components.cline.enabled) {
     $VSCodePath = [Environment]::ExpandEnvironmentVariables($Config.components.vscode.installPath)
     $CodeExe = "$VSCodePath\bin\code.cmd"
     
+    # Verify VS Code is installed and accessible
     if (-not (Test-Path $CodeExe)) {
-        # Try alternative locations
-        $CodeExe = "code"
+        Write-Log "code.cmd not found at: $CodeExe" "WARN"
+        Write-Log "Searching for VS Code in PATH..."
+        
+        # Try to find code in PATH
+        $CodeInPath = Get-Command "code" -ErrorAction SilentlyContinue
+        if ($CodeInPath) {
+            $CodeExe = $CodeInPath.Source
+            Write-Log "Found code at: $CodeExe"
+        } else {
+            Write-Log "VS Code not found in PATH. Trying direct path..." "WARN"
+            # Last resort: use full path to code.exe
+            $CodeExe = "$VSCodePath\bin\code.cmd"
+        }
     }
+    
+    Write-Log "Using VS Code at: $CodeExe"
     
     try {
         Write-Log "Installing Cline extension: $($Config.components.cline.extensionId)"
+        
+        # Verify code.cmd exists
+        if (-not (Test-Path $CodeExe)) {
+            throw "VS Code executable not found at $CodeExe. Please ensure VS Code is installed correctly."
+        }
         
         # Install extension
         $Process = Start-Process -FilePath $CodeExe `
