@@ -180,9 +180,14 @@ code --install-extension saoudrizwan.claude-dev
 ### Issue: Installation failed
 
 **Solution:**
-1. Check install logs:
+1. Check install logs (includes step-by-step markers):
    ```powershell
    Get-Content "$env:TEMP\LocalVibeCodingStack-install.log"
+   ```
+   The latest step is always mirrored to a companion file, so you can watch
+   progress in real time:
+   ```powershell
+   Get-Content "$env:TEMP\LocalVibeCodingStack-install.log.step"
    ```
 2. Run uninstall script and retry:
    ```powershell

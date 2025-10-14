@@ -23,6 +23,31 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogMessage
 }
 
+$TotalSteps = 6
+
+function Start-Step {
+    param(
+        [int]$Number,
+        [string]$Title
+    )
+
+    $Message = "[Step $Number/$TotalSteps] $Title"
+    Write-Log $Message
+    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8
+}
+
+function Complete-Step {
+    param(
+        [int]$Number,
+        [string]$Title,
+        [string]$Status = "Completed"
+    )
+
+    $Message = "[Step $Number/$TotalSteps] $Title - $Status"
+    Write-Log $Message
+    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8
+}
+
 Write-Log "=== Local Vibe Coding Stack Installation Started ==="
 Write-Log "Log file: $LogFile"
 
@@ -78,6 +103,9 @@ function Test-SoftwareInstalled {
 }
 
 # 1. Install VS Code
+$StepNumber = 1
+$StepTitle = "Install VS Code"
+Start-Step -Number $StepNumber -Title $StepTitle
 if ($Config.components.vscode.enabled) {
     Write-Log "=== Installing VS Code ==="
     
@@ -85,6 +113,7 @@ if ($Config.components.vscode.enabled) {
     
     if (Test-SoftwareInstalled "VS Code" "$VSCodePath\Code.exe") {
         Write-Log "VS Code already installed, skipping..."
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Already installed"
     } else {
         $VSCodeInstaller = Join-Path $TempDir "VSCodeSetup.msi"
         
@@ -109,18 +138,26 @@ if ($Config.components.vscode.enabled) {
                 [Environment]::SetEnvironmentVariable("Path", "$UserPath;$CodePath", "User")
                 Write-Log "Added VS Code to PATH"
             }
+
+            Complete-Step -Number $StepNumber -Title $StepTitle
         } else {
-            Write-Log "Failed to download VS Code" "ERROR"
+            $Message = "Failed to download VS Code"
+            Write-Log $Message "ERROR"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: Download error"
         }
     }
 } else {
     Write-Log "VS Code installation is disabled in config"
+    Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
 }
 
 # Wait for VS Code to be available
 Start-Sleep -Seconds 5
 
 # 2. Install Cline Extension
+$StepNumber = 2
+$StepTitle = "Install Cline extension"
+Start-Step -Number $StepNumber -Title $StepTitle
 if ($Config.components.cline.enabled) {
     Write-Log "=== Installing Cline Extension ==="
     
@@ -142,17 +179,25 @@ if ($Config.components.cline.enabled) {
         
         if ($Process.ExitCode -eq 0) {
             Write-Log "Cline extension installed successfully"
+            Complete-Step -Number $StepNumber -Title $StepTitle
         } else {
+            $Status = "Exit code $($Process.ExitCode)"
             Write-Log "Cline extension installation returned code: $($Process.ExitCode)" "WARN"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Completed with warning: $Status"
         }
     } catch {
         Write-Log "Failed to install Cline extension: $_" "ERROR"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: $($_.Exception.Message)"
     }
 } else {
     Write-Log "Cline extension installation is disabled in config"
+    Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
 }
 
 # 3. Install LM Studio
+$StepNumber = 3
+$StepTitle = "Install LM Studio"
+Start-Step -Number $StepNumber -Title $StepTitle
 if ($Config.components.lmstudio.enabled) {
     Write-Log "=== Installing LM Studio ==="
     
@@ -160,6 +205,7 @@ if ($Config.components.lmstudio.enabled) {
     
     if (Test-SoftwareInstalled "LM Studio" "$LMStudioPath\LM Studio.exe") {
         Write-Log "LM Studio already installed, skipping..."
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Already installed"
     } else {
         $LMStudioInstaller = Join-Path $TempDir "LMStudioSetup.exe"
         
@@ -173,18 +219,25 @@ if ($Config.components.lmstudio.enabled) {
             
             if ($Process.ExitCode -eq 0) {
                 Write-Log "LM Studio installation completed"
+                Complete-Step -Number $StepNumber -Title $StepTitle
             } else {
                 Write-Log "LM Studio installation returned code: $($Process.ExitCode)" "WARN"
+                Complete-Step -Number $StepNumber -Title $StepTitle -Status "Completed with warning: Exit code $($Process.ExitCode)"
             }
         } else {
             Write-Log "Failed to download LM Studio" "ERROR"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: Download error"
         }
     }
 } else {
     Write-Log "LM Studio installation is disabled in config"
+    Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
 }
 
 # 4. Download AI Model
+$StepNumber = 4
+$StepTitle = "Download AI model"
+Start-Step -Number $StepNumber -Title $StepTitle
 if ($Config.components.model.enabled -and -not $SkipModelDownload) {
     Write-Log "=== Downloading AI Model ==="
     
@@ -198,25 +251,33 @@ if ($Config.components.model.enabled -and -not $SkipModelDownload) {
     
     if (Test-Path $ModelPath) {
         Write-Log "Model already downloaded: $ModelPath"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Already present"
     } else {
         Write-Log "Downloading model: $($Config.components.model.name) (Size: $($Config.components.model.size))"
         Write-Host "Model download may take 15-30 minutes depending on your connection..."
         
         if (Download-File -Url $Config.components.model.downloadUrl -OutputPath $ModelPath -Description "AI Model") {
             Write-Log "Model downloaded successfully: $ModelPath"
+            Complete-Step -Number $StepNumber -Title $StepTitle
         } else {
             Write-Log "Failed to download model. You can download it manually in LM Studio." "WARN"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: Download error"
         }
     }
 } else {
     if ($SkipModelDownload) {
         Write-Log "Model download skipped by user"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped by user"
     } else {
         Write-Log "Model download is disabled in config"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
     }
 }
 
 # 5. Configure Cline to use LM Studio
+$StepNumber = 5
+$StepTitle = "Configure Cline settings"
+Start-Step -Number $StepNumber -Title $StepTitle
 Write-Log "=== Configuring Cline ==="
 
 $VSCodeSettingsPath = "$env:APPDATA\Code\User"
@@ -251,25 +312,39 @@ $Settings["cline.maxTokens"] = $ClineConfig.maxTokens
 try {
     $Settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsFile -Encoding UTF8
     Write-Log "Cline configuration saved to: $SettingsFile"
+    Complete-Step -Number $StepNumber -Title $StepTitle
 } catch {
     Write-Log "Failed to save Cline configuration: $_" "ERROR"
+    Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: $($_.Exception.Message)"
 }
 
-# Create desktop shortcut for VS Code (optional)
+# 6. Create shortcuts (optional)
+$StepNumber = 6
+$StepTitle = "Create desktop shortcut"
+Start-Step -Number $StepNumber -Title $StepTitle
 if ($Config.installer.createDesktopShortcut) {
     Write-Log "Creating desktop shortcut..."
     
-    $WScriptShell = New-Object -ComObject WScript.Shell
-    $DesktopPath = [Environment]::GetFolderPath("Desktop")
-    $ShortcutPath = Join-Path $DesktopPath "VS Code (Local Vibe).lnk"
-    $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
-    
-    $VSCodePath = [Environment]::ExpandEnvironmentVariables($Config.components.vscode.installPath)
-    $Shortcut.TargetPath = "$VSCodePath\Code.exe"
-    $Shortcut.Description = "VS Code with Local AI Assistant"
-    $Shortcut.Save()
-    
-    Write-Log "Desktop shortcut created: $ShortcutPath"
+    try {
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $DesktopPath = [Environment]::GetFolderPath("Desktop")
+        $ShortcutPath = Join-Path $DesktopPath "VS Code (Local Vibe).lnk"
+        $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
+        
+        $VSCodePath = [Environment]::ExpandEnvironmentVariables($Config.components.vscode.installPath)
+        $Shortcut.TargetPath = "$VSCodePath\Code.exe"
+        $Shortcut.Description = "VS Code with Local AI Assistant"
+        $Shortcut.Save()
+        
+        Write-Log "Desktop shortcut created: $ShortcutPath"
+        Complete-Step -Number $StepNumber -Title $StepTitle
+    } catch {
+        Write-Log "Failed to create desktop shortcut: $_" "WARN"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Completed with warning"
+    }
+} else {
+    Write-Log "Desktop shortcut creation disabled in config"
+    Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped"
 }
 
 # Cleanup temp files (optional)
