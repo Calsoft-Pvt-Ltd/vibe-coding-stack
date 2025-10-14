@@ -226,10 +226,6 @@
     <Launch Message="This application requires Windows 10 or later." Condition="Installed OR (VersionNT &gt;= 603)" />
     <Launch Message="This application requires PowerShell 5.1 or later." Condition="Installed OR POWERSHELLVERSION &gt;= &quot;5.1&quot;" />
 
-    <!-- Use built-in UI -->
-    <UIRef Id="WixUI_InstallDir" />
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
-
   </Package>
 
 </Wix>
