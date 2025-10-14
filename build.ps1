@@ -12,7 +12,11 @@ $ErrorActionPreference = "Stop"
 Write-Host "=== Building Local Vibe Coding Stack MSI Installer ===" -ForegroundColor Cyan
 
 # Locate WiX CLI
-$WixExe = (Get-Command "wix.exe" -ErrorAction SilentlyContinue | Select-Object -First 1)?.Source
+$WixExe = $null
+$WixCommand = Get-Command "wix.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($WixCommand) {
+    $WixExe = $WixCommand.Source
+}
 
 if (-not $WixExe) {
     $FallbackPaths = @(
