@@ -86,7 +86,7 @@ function Download-File {
         Write-Log "Downloaded successfully to: $OutputPath"
         return $true
     } catch {
-        Write-Log "Failed to download $Description: $_" "ERROR"
+        Write-Log "Failed to download ${Description}: $_" "ERROR"
         return $false
     }
 }
