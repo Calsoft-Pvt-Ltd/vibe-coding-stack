@@ -17,7 +17,7 @@
     "lmstudio": {
       "enabled": true,
       "version": "latest",
-      "downloadUrl": "https://releases.lmstudio.ai/windows/latest/LM-Studio-Setup.exe",
+      "downloadUrl": "https://installers.lmstudio.ai/win32/x64/0.3.30-1/LM-Studio-0.3.30-1-x64.exe",
       "installerType": "exe",
       "installPath": "%LOCALAPPDATA%\\LM-Studio"
     },
