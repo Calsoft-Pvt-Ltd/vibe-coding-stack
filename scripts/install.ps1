@@ -115,7 +115,7 @@ if ($Config.components.vscode.enabled) {
         Write-Log "VS Code already installed, skipping..."
         Complete-Step -Number $StepNumber -Title $StepTitle -Status "Already installed"
     } else {
-        $VSCodeInstaller = Join-Path $TempDir "VSCodeSetup.msi"
+        $VSCodeInstaller = Join-Path $TempDir "VSCodeSetup.exe"
         
         if (Download-File -Url $Config.components.vscode.downloadUrl -OutputPath $VSCodeInstaller -Description "VS Code") {
             Write-Log "Installing VS Code..."
