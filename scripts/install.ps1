@@ -119,17 +119,30 @@ if ($Config.components.vscode.enabled) {
         
         if (Download-File -Url $Config.components.vscode.downloadUrl -OutputPath $VSCodeInstaller -Description "VS Code") {
             Write-Log "Installing VS Code..."
+            Write-Log "Running: msiexec.exe /i `"$VSCodeInstaller`" /qn /norestart"
+            
             $InstallArgs = @(
                 "/i"
                 "`"$VSCodeInstaller`""
                 "/qn"
                 "/norestart"
-                "ADDLOCAL=ALL"
-                "ALLUSERS=0"
             )
             
-            Start-Process "msiexec.exe" -ArgumentList $InstallArgs -Wait -NoNewWindow
-            Write-Log "VS Code installation completed"
+            $Process = Start-Process "msiexec.exe" -ArgumentList $InstallArgs -Wait -NoNewWindow -PassThru
+            
+            if ($Process.ExitCode -eq 0) {
+                Write-Log "VS Code installation completed successfully"
+            } elseif ($Process.ExitCode -eq 3010) {
+                Write-Log "VS Code installation completed (reboot required but suppressed)" "WARN"
+            } else {
+                Write-Log "VS Code installation returned exit code: $($Process.ExitCode)" "WARN"
+                Write-Log "Installation may have failed. Common causes:"
+                Write-Log "  - MSI file corrupted or incomplete download"
+                Write-Log "  - Insufficient permissions"
+                Write-Log "  - Another installation in progress"
+            }
+            
+            Write-Log "VS Code installation process finished"
             
             # Wait for VS Code installation to fully complete and files to be written
             Write-Log "Waiting for VS Code to be fully installed..."
