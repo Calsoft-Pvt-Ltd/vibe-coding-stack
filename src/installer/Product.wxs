@@ -227,9 +227,7 @@
     <Launch Message="This application requires PowerShell 5.1 or later." Condition="Installed OR POWERSHELLVERSION &gt;= &quot;5.1&quot;" />
 
     <!-- Use built-in UI -->
-    <UI>
-      <UIRef Id="WixUI_InstallDir" />
-    </UI>
+    <UIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
 
   </Package>
