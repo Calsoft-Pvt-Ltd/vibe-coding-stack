@@ -98,7 +98,8 @@ function Install-SQLite3 {
     )
     
     try {
-        Write-Log "Attempting to install SQLite3 CLI tool..."
+        Write-Log "=== Installing SQLite3 CLI Tool ==="
+        Write-Log "This method avoids .NET dependencies completely"
         
         # Determine architecture
         if ([Environment]::Is64BitOperatingSystem) {
@@ -109,19 +110,23 @@ function Install-SQLite3 {
             $SqliteZipUrl = "https://www.sqlite.org/2024/sqlite-tools-win32-x86-3450300.zip"
         }
         
-        Write-Log "Detected architecture: $Architecture"
-        Write-Log "Downloading SQLite3 tools from: $SqliteZipUrl"
+        Write-Log "Detected OS architecture: $Architecture"
+        Write-Log "SQLite3 download URL: $SqliteZipUrl"
         
         $SqliteZip = Join-Path $TempDir "sqlite-tools.zip"
         $SqliteExtractPath = Join-Path $TempDir "sqlite3"
         
+        Write-Log "Download target: $SqliteZip"
+        Write-Log "Extract target: $SqliteExtractPath"
+        
         # Download SQLite tools
+        Write-Log "Downloading SQLite3 tools..."
         $WebClient = New-Object System.Net.WebClient
         $WebClient.DownloadFile($SqliteZipUrl, $SqliteZip)
         
         if (Test-Path $SqliteZip) {
             $FileSize = (Get-Item $SqliteZip).Length
-            Write-Log "Downloaded SQLite3 tools ($FileSize bytes)"
+            Write-Log "Downloaded SQLite3 tools successfully ($FileSize bytes)"
         } else {
             Write-Log "Download failed - file not found at $SqliteZip" "ERROR"
             return $null
@@ -129,28 +134,50 @@ function Install-SQLite3 {
         
         # Extract the ZIP file
         if (Test-Path $SqliteExtractPath) {
+            Write-Log "Removing existing SQLite3 directory..."
             Remove-Item -Path $SqliteExtractPath -Recurse -Force
         }
+        Write-Log "Creating extract directory..."
         New-Item -ItemType Directory -Path $SqliteExtractPath -Force | Out-Null
         
+        Write-Log "Extracting SQLite3 tools..."
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory($SqliteZip, $SqliteExtractPath)
-        Write-Log "Extracted SQLite3 tools to: $SqliteExtractPath"
+        Write-Log "Extracted SQLite3 tools successfully"
+        
+        # List extracted files
+        $ExtractedFiles = Get-ChildItem -Path $SqliteExtractPath -Recurse -File
+        Write-Log "Extracted files:"
+        foreach ($File in $ExtractedFiles) {
+            Write-Log "  - $($File.Name) ($($File.Length) bytes)"
+        }
         
         # Find sqlite3.exe
+        Write-Log "Searching for sqlite3.exe..."
         $Sqlite3Exe = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "sqlite3.exe" | Select-Object -First 1
         
         if ($Sqlite3Exe) {
-            Write-Log "Found sqlite3.exe at: $($Sqlite3Exe.FullName)"
+            Write-Log "SUCCESS: Found sqlite3.exe at: $($Sqlite3Exe.FullName)"
+            
+            # Test sqlite3.exe works
+            try {
+                $TestResult = & $Sqlite3Exe.FullName -version 2>&1
+                Write-Log "SQLite3 version: $TestResult"
+            } catch {
+                Write-Log "Warning: Could not get SQLite3 version: $_" "WARN"
+            }
+            
             return $Sqlite3Exe.FullName
         } else {
-            Write-Log "sqlite3.exe not found in extracted files" "ERROR"
+            Write-Log "ERROR: sqlite3.exe not found in extracted files" "ERROR"
+            Write-Log "Searched in: $SqliteExtractPath"
             return $null
         }
         
     } catch {
         Write-Log "Failed to install SQLite3: $_" "ERROR"
         Write-Log "Error type: $($_.Exception.GetType().FullName)" "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" "ERROR"
         return $null
     }
 }
@@ -854,17 +881,32 @@ try {
         Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
         
         # Try SQLite3 CLI approach first (simpler and more reliable)
-        Write-Log "Attempting to configure Cline using SQLite3 CLI..."
+        Write-Log "=== Attempting to use SQLite3 CLI method ===" "INFO"
+        Write-Log "This is the preferred method - no .NET dependencies needed"
         $Sqlite3Path = Install-SQLite3 -TempDir $TempDir
         
         $UpdateResult = $false
         
         if ($Sqlite3Path) {
-            Write-Log "SQLite3 CLI installed successfully, using CLI approach"
+            Write-Log "SUCCESS: SQLite3 CLI installed successfully at: $Sqlite3Path"
+            Write-Log "Using SQLite3 CLI to configure Cline (no .NET method needed)"
             $UpdateResult = Update-ClineSettingsWithCLI -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -Sqlite3Path $Sqlite3Path
+            
+            if ($UpdateResult) {
+                Write-Log "SUCCESS: Cline configured successfully using SQLite3 CLI"
+            } else {
+                Write-Log "FAILED: SQLite3 CLI method failed to configure Cline" "ERROR"
+            }
         } else {
-            Write-Log "SQLite3 CLI installation failed, falling back to .NET method" "WARN"
+            Write-Log "WARNING: SQLite3 CLI installation failed" "WARN"
+            Write-Log "Falling back to .NET method (will download System.Data.SQLite)" "WARN"
             $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -TempDir $TempDir
+            
+            if ($UpdateResult) {
+                Write-Log "SUCCESS: Cline configured successfully using .NET method"
+            } else {
+                Write-Log "FAILED: .NET method also failed" "ERROR"
+            }
         }
         
         if ($UpdateResult) {
