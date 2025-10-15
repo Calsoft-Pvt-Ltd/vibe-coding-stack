@@ -183,7 +183,7 @@ function Install-SystemDataSQLite {
                 Write-Log "Trying alternative package: System.Data.SQLite (not Core)" "WARN"
                 
                 # Try the full package instead of Core
-                $FullPackageUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite/$SqliteVersion"
+                $FullPackageUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite/2.0.2"
                 $FullPackageZip = Join-Path $TempDir "System.Data.SQLite.Full.zip"
                 $FullExtractPath = Join-Path $TempDir "sqlite-full"
                 
@@ -216,16 +216,24 @@ function Install-SystemDataSQLite {
         Write-Log "Successfully loaded System.Data.SQLite from NuGet package"
         
         # Find and handle the native interop DLL
+        Write-Log "Searching for native SQLite.Interop.dll..."
+        
         $PossibleInteropPaths = @(
             "build\net46\$Architecture\SQLite.Interop.dll",
             "build\net45\$Architecture\SQLite.Interop.dll",
+            "build\net40\$Architecture\SQLite.Interop.dll",
             "runtimes\win-$Architecture\native\SQLite.Interop.dll",
-            "runtimes\win\native\SQLite.Interop.dll"
+            "runtimes\win\native\SQLite.Interop.dll",
+            "lib\net46\$Architecture\SQLite.Interop.dll",
+            "lib\net45\$Architecture\SQLite.Interop.dll",
+            "content\net46\$Architecture\SQLite.Interop.dll",
+            "content\net45\$Architecture\SQLite.Interop.dll"
         )
         
         $InteropDllPath = $null
         foreach ($RelativePath in $PossibleInteropPaths) {
             $TestPath = Join-Path $SqliteExtractPath $RelativePath
+            Write-Log "  Checking: $TestPath"
             if (Test-Path $TestPath) {
                 $InteropDllPath = $TestPath
                 Write-Log "Found native interop DLL at: $InteropDllPath"
@@ -233,38 +241,59 @@ function Install-SystemDataSQLite {
             }
         }
         
+        # If not found in expected paths, do a recursive search
+        if (-not $InteropDllPath) {
+            Write-Log "Not found in expected paths, performing recursive search..." "WARN"
+            $FoundInterop = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "SQLite.Interop.dll" -ErrorAction SilentlyContinue
+            
+            if ($FoundInterop) {
+                Write-Log "Found SQLite.Interop.dll at:"
+                # Filter by architecture if possible
+                $ArchSpecificInterop = $null
+                foreach ($Interop in $FoundInterop) {
+                    Write-Log "  - $($Interop.FullName)"
+                    # Try to find one matching our architecture
+                    if ($Interop.DirectoryName -like "*$Architecture*") {
+                        $ArchSpecificInterop = $Interop
+                        Write-Log "    ^ Matches architecture $Architecture"
+                    }
+                }
+                
+                # Use arch-specific if found, otherwise use first one
+                if ($ArchSpecificInterop) {
+                    $InteropDllPath = $ArchSpecificInterop.FullName
+                    Write-Log "Using architecture-specific interop DLL: $InteropDllPath"
+                } elseif ($FoundInterop.Count -gt 0) {
+                    $InteropDllPath = $FoundInterop[0].FullName
+                    Write-Log "Using first found interop DLL: $InteropDllPath"
+                }
+            }
+        }
+        
+        # Copy the interop DLL if found
         if ($InteropDllPath -and (Test-Path $InteropDllPath)) {
-            # Copy native DLL to same directory as managed DLL
-            $TargetInteropPath = Join-Path (Split-Path $DllPath -Parent) "SQLite.Interop.dll"
+            $ManagedDllDir = Split-Path $DllPath -Parent
+            
+            # Copy to same directory as managed DLL
+            $TargetInteropPath = Join-Path $ManagedDllDir "SQLite.Interop.dll"
             Copy-Item -Path $InteropDllPath -Destination $TargetInteropPath -Force
             Write-Log "Copied native SQLite.Interop.dll to: $TargetInteropPath"
             
-            # Also copy to a subdirectory based on architecture (SQLite looks here too)
-            $ArchSubDir = Join-Path (Split-Path $DllPath -Parent) $Architecture
+            # Also copy to architecture-specific subdirectory
+            $ArchSubDir = Join-Path $ManagedDllDir $Architecture
             if (-not (Test-Path $ArchSubDir)) {
                 New-Item -ItemType Directory -Path $ArchSubDir -Force | Out-Null
+                Write-Log "Created architecture subdirectory: $ArchSubDir"
             }
             $ArchInteropPath = Join-Path $ArchSubDir "SQLite.Interop.dll"
             Copy-Item -Path $InteropDllPath -Destination $ArchInteropPath -Force
             Write-Log "Copied native DLL to architecture subdirectory: $ArchInteropPath"
+            
+            Write-Log "Native interop DLL setup completed successfully"
         } else {
-            Write-Log "Native interop DLL not found at any expected path, searching..." "WARN"
-            $FoundInterop = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "SQLite.Interop.dll" -ErrorAction SilentlyContinue
-            if ($FoundInterop) {
-                Write-Log "Found SQLite.Interop.dll at:"
-                foreach ($Interop in $FoundInterop) {
-                    Write-Log "  - $($Interop.FullName)"
-                    # Try to copy the first one we find
-                    if (-not $InteropDllPath) {
-                        $InteropDllPath = $Interop.FullName
-                        $TargetInteropPath = Join-Path (Split-Path $DllPath -Parent) "SQLite.Interop.dll"
-                        Copy-Item -Path $InteropDllPath -Destination $TargetInteropPath -Force
-                        Write-Log "Copied found interop DLL to: $TargetInteropPath"
-                    }
-                }
-            } else {
-                Write-Log "SQLite.Interop.dll not found - database operations may fail" "WARN"
-            }
+            Write-Log "SQLite.Interop.dll not found in package" "WARN"
+            Write-Log "This may indicate the package has an embedded native library" "INFO"
+            Write-Log "Database operations will be attempted - they may still work" "INFO"
         }
         
         return $true
