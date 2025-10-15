@@ -107,18 +107,36 @@ function Install-SystemDataSQLite {
         $SqliteExtractPath = Join-Path $TempDir "sqlite"
         
         Write-Log "Downloading System.Data.SQLite from NuGet..."
+        Write-Log "URL: $NuGetUrl"
+        Write-Log "Target: $NuGetZip"
+        
         $WebClient = New-Object System.Net.WebClient
         $WebClient.DownloadFile($NuGetUrl, $NuGetZip)
-        Write-Log "Downloaded System.Data.SQLite package"
+        
+        if (Test-Path $NuGetZip) {
+            $FileSize = (Get-Item $NuGetZip).Length
+            Write-Log "Downloaded System.Data.SQLite package ($FileSize bytes)"
+        } else {
+            Write-Log "Download failed - file not found at $NuGetZip" "ERROR"
+            return $false
+        }
         
         # Extract the NuGet package (it's a ZIP file)
         if (Test-Path $SqliteExtractPath) {
             Remove-Item -Path $SqliteExtractPath -Recurse -Force
         }
         
+        Write-Log "Extracting NuGet package to: $SqliteExtractPath"
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [System.IO.Compression.ZipFile]::ExtractToDirectory($NuGetZip, $SqliteExtractPath)
         Write-Log "Extracted System.Data.SQLite package"
+        
+        # List contents to verify extraction
+        $ExtractedFiles = Get-ChildItem -Path $SqliteExtractPath -Recurse -File | Select-Object -First 10
+        Write-Log "Sample of extracted files:"
+        foreach ($File in $ExtractedFiles) {
+            Write-Log "  - $($File.FullName.Replace($SqliteExtractPath, ''))"
+        }
         
         # Determine architecture
         if ([Environment]::Is64BitProcess) {
@@ -126,31 +144,135 @@ function Install-SystemDataSQLite {
         } else {
             $Architecture = "x86"
         }
+        Write-Log "Detected architecture: $Architecture"
         
-        # Find the correct DLL path
-        $DllPath = Join-Path $SqliteExtractPath "lib\net46\System.Data.SQLite.dll"
-        $InteropDllPath = Join-Path $SqliteExtractPath "build\net46\$Architecture\SQLite.Interop.dll"
+        # Try multiple possible paths for the DLL (package structure varies)
+        $PossibleDllPaths = @(
+            "lib\net46\System.Data.SQLite.dll",
+            "lib\net45\System.Data.SQLite.dll",
+            "lib\net40\System.Data.SQLite.dll",
+            "lib\netstandard2.0\System.Data.SQLite.dll",
+            "lib\netstandard2.1\System.Data.SQLite.dll"
+        )
         
-        if (-not (Test-Path $DllPath)) {
-            Write-Log "Could not find System.Data.SQLite.dll at expected path" "ERROR"
-            return $false
+        $DllPath = $null
+        foreach ($RelativePath in $PossibleDllPaths) {
+            $TestPath = Join-Path $SqliteExtractPath $RelativePath
+            Write-Log "Checking for DLL at: $TestPath"
+            if (Test-Path $TestPath) {
+                $DllPath = $TestPath
+                Write-Log "Found System.Data.SQLite.dll at: $DllPath"
+                break
+            }
+        }
+        
+        # If still not found, search recursively
+        if (-not $DllPath) {
+            Write-Log "DLL not found at any expected path, searching recursively..." "WARN"
+            $FoundDlls = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "System.Data.SQLite.dll" -ErrorAction SilentlyContinue
+            if ($FoundDlls) {
+                Write-Log "Found System.Data.SQLite.dll at alternate location(s):"
+                foreach ($Dll in $FoundDlls) {
+                    Write-Log "  - $($Dll.FullName)"
+                }
+                $DllPath = $FoundDlls[0].FullName
+                Write-Log "Using: $DllPath"
+            } else {
+                Write-Log "System.Data.SQLite.dll not found anywhere in package" "ERROR"
+                Write-Log "This package may not contain the managed assembly" "ERROR"
+                Write-Log "Trying alternative package: System.Data.SQLite (not Core)" "WARN"
+                
+                # Try the full package instead of Core
+                $FullPackageUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite/$SqliteVersion"
+                $FullPackageZip = Join-Path $TempDir "System.Data.SQLite.Full.zip"
+                $FullExtractPath = Join-Path $TempDir "sqlite-full"
+                
+                Write-Log "Downloading full System.Data.SQLite package..."
+                $WebClient.DownloadFile($FullPackageUrl, $FullPackageZip)
+                
+                if (Test-Path $FullExtractPath) {
+                    Remove-Item -Path $FullExtractPath -Recurse -Force
+                }
+                
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($FullPackageZip, $FullExtractPath)
+                Write-Log "Extracted full package"
+                
+                # Search in full package
+                $FoundDlls = Get-ChildItem -Path $FullExtractPath -Recurse -Filter "System.Data.SQLite.dll" -ErrorAction SilentlyContinue
+                if ($FoundDlls) {
+                    $DllPath = $FoundDlls[0].FullName
+                    Write-Log "Found DLL in full package: $DllPath"
+                    $SqliteExtractPath = $FullExtractPath
+                } else {
+                    Write-Log "System.Data.SQLite.dll not found in either package" "ERROR"
+                    return $false
+                }
+            }
         }
         
         # Load the assembly
+        Write-Log "Loading assembly from: $DllPath"
         [System.Reflection.Assembly]::LoadFrom($DllPath) | Out-Null
         Write-Log "Successfully loaded System.Data.SQLite from NuGet package"
         
-        # Copy the native interop DLL if it exists
-        if (Test-Path $InteropDllPath) {
+        # Find and handle the native interop DLL
+        $PossibleInteropPaths = @(
+            "build\net46\$Architecture\SQLite.Interop.dll",
+            "build\net45\$Architecture\SQLite.Interop.dll",
+            "runtimes\win-$Architecture\native\SQLite.Interop.dll",
+            "runtimes\win\native\SQLite.Interop.dll"
+        )
+        
+        $InteropDllPath = $null
+        foreach ($RelativePath in $PossibleInteropPaths) {
+            $TestPath = Join-Path $SqliteExtractPath $RelativePath
+            if (Test-Path $TestPath) {
+                $InteropDllPath = $TestPath
+                Write-Log "Found native interop DLL at: $InteropDllPath"
+                break
+            }
+        }
+        
+        if ($InteropDllPath -and (Test-Path $InteropDllPath)) {
+            # Copy native DLL to same directory as managed DLL
             $TargetInteropPath = Join-Path (Split-Path $DllPath -Parent) "SQLite.Interop.dll"
             Copy-Item -Path $InteropDllPath -Destination $TargetInteropPath -Force
-            Write-Log "Copied native SQLite.Interop.dll"
+            Write-Log "Copied native SQLite.Interop.dll to: $TargetInteropPath"
+            
+            # Also copy to a subdirectory based on architecture (SQLite looks here too)
+            $ArchSubDir = Join-Path (Split-Path $DllPath -Parent) $Architecture
+            if (-not (Test-Path $ArchSubDir)) {
+                New-Item -ItemType Directory -Path $ArchSubDir -Force | Out-Null
+            }
+            $ArchInteropPath = Join-Path $ArchSubDir "SQLite.Interop.dll"
+            Copy-Item -Path $InteropDllPath -Destination $ArchInteropPath -Force
+            Write-Log "Copied native DLL to architecture subdirectory: $ArchInteropPath"
+        } else {
+            Write-Log "Native interop DLL not found at any expected path, searching..." "WARN"
+            $FoundInterop = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "SQLite.Interop.dll" -ErrorAction SilentlyContinue
+            if ($FoundInterop) {
+                Write-Log "Found SQLite.Interop.dll at:"
+                foreach ($Interop in $FoundInterop) {
+                    Write-Log "  - $($Interop.FullName)"
+                    # Try to copy the first one we find
+                    if (-not $InteropDllPath) {
+                        $InteropDllPath = $Interop.FullName
+                        $TargetInteropPath = Join-Path (Split-Path $DllPath -Parent) "SQLite.Interop.dll"
+                        Copy-Item -Path $InteropDllPath -Destination $TargetInteropPath -Force
+                        Write-Log "Copied found interop DLL to: $TargetInteropPath"
+                    }
+                }
+            } else {
+                Write-Log "SQLite.Interop.dll not found - database operations may fail" "WARN"
+            }
         }
         
         return $true
         
     } catch {
         Write-Log "Failed to install System.Data.SQLite: $_" "ERROR"
+        Write-Log "Error type: $($_.Exception.GetType().FullName)" "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" "ERROR"
         return $false
     }
 }
