@@ -91,7 +91,71 @@ function Download-File {
     }
 }
 
-# Function to install System.Data.SQLite from NuGet
+# Function to install SQLite3 CLI tool
+function Install-SQLite3 {
+    param(
+        [string]$TempDir
+    )
+    
+    try {
+        Write-Log "Attempting to install SQLite3 CLI tool..."
+        
+        # Determine architecture
+        if ([Environment]::Is64BitOperatingSystem) {
+            $Architecture = "x64"
+            $SqliteZipUrl = "https://www.sqlite.org/2024/sqlite-tools-win-x64-3450300.zip"
+        } else {
+            $Architecture = "x86"
+            $SqliteZipUrl = "https://www.sqlite.org/2024/sqlite-tools-win32-x86-3450300.zip"
+        }
+        
+        Write-Log "Detected architecture: $Architecture"
+        Write-Log "Downloading SQLite3 tools from: $SqliteZipUrl"
+        
+        $SqliteZip = Join-Path $TempDir "sqlite-tools.zip"
+        $SqliteExtractPath = Join-Path $TempDir "sqlite3"
+        
+        # Download SQLite tools
+        $WebClient = New-Object System.Net.WebClient
+        $WebClient.DownloadFile($SqliteZipUrl, $SqliteZip)
+        
+        if (Test-Path $SqliteZip) {
+            $FileSize = (Get-Item $SqliteZip).Length
+            Write-Log "Downloaded SQLite3 tools ($FileSize bytes)"
+        } else {
+            Write-Log "Download failed - file not found at $SqliteZip" "ERROR"
+            return $null
+        }
+        
+        # Extract the ZIP file
+        if (Test-Path $SqliteExtractPath) {
+            Remove-Item -Path $SqliteExtractPath -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $SqliteExtractPath -Force | Out-Null
+        
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($SqliteZip, $SqliteExtractPath)
+        Write-Log "Extracted SQLite3 tools to: $SqliteExtractPath"
+        
+        # Find sqlite3.exe
+        $Sqlite3Exe = Get-ChildItem -Path $SqliteExtractPath -Recurse -Filter "sqlite3.exe" | Select-Object -First 1
+        
+        if ($Sqlite3Exe) {
+            Write-Log "Found sqlite3.exe at: $($Sqlite3Exe.FullName)"
+            return $Sqlite3Exe.FullName
+        } else {
+            Write-Log "sqlite3.exe not found in extracted files" "ERROR"
+            return $null
+        }
+        
+    } catch {
+        Write-Log "Failed to install SQLite3: $_" "ERROR"
+        Write-Log "Error type: $($_.Exception.GetType().FullName)" "ERROR"
+        return $null
+    }
+}
+
+# Function to install System.Data.SQLite from NuGet (Legacy fallback)
 function Install-SystemDataSQLite {
     param(
         [string]$TempDir
@@ -306,7 +370,89 @@ function Install-SystemDataSQLite {
     }
 }
 
-# Function to update Cline settings in VS Code SQLite database
+# Function to update Cline settings using SQLite3 CLI
+function Update-ClineSettingsWithCLI {
+    param(
+        [string]$StateDbPath,
+        [hashtable]$LmStudioConfig,
+        [string]$Sqlite3Path
+    )
+    
+    try {
+        Write-Log "Using SQLite3 CLI to update Cline settings"
+        Write-Log "SQLite3 path: $Sqlite3Path"
+        Write-Log "Database path: $StateDbPath"
+        
+        # Read existing configuration
+        $ReadQuery = "SELECT value FROM ItemTable WHERE key = 'saoudrizwan.claude-dev';"
+        $ReadResult = & $Sqlite3Path $StateDbPath $ReadQuery 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "Failed to read from database. Exit code: $LASTEXITCODE" "ERROR"
+            Write-Log "Error output: $ReadResult" "ERROR"
+            return $false
+        }
+        
+        $ClineSettings = @{}
+        
+        if ($ReadResult -and $ReadResult.Trim() -ne "") {
+            Write-Log "Found existing Cline configuration"
+            try {
+                # Parse existing JSON
+                $ExistingJson = $ReadResult | ConvertFrom-Json -AsHashtable
+                $ClineSettings = $ExistingJson
+                Write-Log "Successfully parsed existing configuration"
+            } catch {
+                Write-Log "Could not parse existing configuration, creating new" "WARN"
+                $ClineSettings = @{}
+            }
+        } else {
+            Write-Log "No existing Cline configuration found, creating new entry"
+        }
+        
+        # Update LM Studio settings
+        $ClineSettings["actModeApiProvider"] = "lmstudio"
+        $ClineSettings["planModeApiProvider"] = "lmstudio"
+        $ClineSettings["actModeLmStudioModelId"] = $LmStudioConfig.modelId
+        $ClineSettings["planModeLmStudioModelId"] = $LmStudioConfig.modelId
+        $ClineSettings["lmStudioBaseUrl"] = $LmStudioConfig.baseUrl
+        $ClineSettings["lmStudioMaxTokens"] = $LmStudioConfig.maxTokens
+        
+        Write-Log "Updated Cline configuration:"
+        Write-Log "  - API Provider: lmstudio"
+        Write-Log "  - Model ID: $($LmStudioConfig.modelId)"
+        Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
+        Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
+        
+        # Convert to JSON (compress and escape for SQL)
+        $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
+        # Escape single quotes for SQL by doubling them
+        $UpdatedJsonEscaped = $UpdatedJson -replace "'", "''"
+        
+        Write-Log "Saving configuration to database..."
+        
+        # Use INSERT OR REPLACE to update or create the entry
+        $UpdateQuery = "INSERT OR REPLACE INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', '$UpdatedJsonEscaped');"
+        
+        $UpdateResult = & $Sqlite3Path $StateDbPath $UpdateQuery 2>&1
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Log "Cline settings updated successfully using SQLite3 CLI"
+            return $true
+        } else {
+            Write-Log "Failed to update database. Exit code: $LASTEXITCODE" "ERROR"
+            Write-Log "Error output: $UpdateResult" "ERROR"
+            return $false
+        }
+        
+    } catch {
+        Write-Log "Failed to update Cline settings with CLI: $_" "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" "ERROR"
+        return $false
+    }
+}
+
+# Function to update Cline settings in VS Code SQLite database (Legacy .NET method)
 function Update-ClineSettings {
     param(
         [string]$StateDbPath,
@@ -707,8 +853,19 @@ try {
         Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
         Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
         
-        # Update Cline settings in database
-        $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -TempDir $TempDir
+        # Try SQLite3 CLI approach first (simpler and more reliable)
+        Write-Log "Attempting to configure Cline using SQLite3 CLI..."
+        $Sqlite3Path = Install-SQLite3 -TempDir $TempDir
+        
+        $UpdateResult = $false
+        
+        if ($Sqlite3Path) {
+            Write-Log "SQLite3 CLI installed successfully, using CLI approach"
+            $UpdateResult = Update-ClineSettingsWithCLI -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -Sqlite3Path $Sqlite3Path
+        } else {
+            Write-Log "SQLite3 CLI installation failed, falling back to .NET method" "WARN"
+            $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -TempDir $TempDir
+        }
         
         if ($UpdateResult) {
             Write-Log "Cline configuration saved successfully"
