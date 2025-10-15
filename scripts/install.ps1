@@ -91,6 +91,102 @@ function Download-File {
     }
 }
 
+# Function to update Cline settings in VS Code SQLite database
+function Update-ClineSettings {
+    param(
+        [string]$StateDbPath,
+        [hashtable]$LmStudioConfig
+    )
+    
+    try {
+        # Try to load System.Data.SQLite
+        try {
+            Add-Type -AssemblyName "System.Data.SQLite" -ErrorAction Stop
+            Write-Log "Using System.Data.SQLite assembly"
+        } catch {
+            Write-Log "System.Data.SQLite not available" "ERROR"
+            Write-Log "Please ensure .NET Framework or System.Data.SQLite is installed" "ERROR"
+            return $false
+        }
+        
+        # Connect to database
+        $ConnectionString = "Data Source=$StateDbPath;Version=3;"
+        $Connection = New-Object System.Data.SQLite.SQLiteConnection($ConnectionString)
+        $Connection.Open()
+        Write-Log "Connected to VS Code state database"
+        
+        # Read existing Cline configuration
+        $ReadCommand = $Connection.CreateCommand()
+        $ReadCommand.CommandText = "SELECT value FROM ItemTable WHERE key = 'saoudrizwan.claude-dev'"
+        $ExistingValue = $ReadCommand.ExecuteScalar()
+        
+        $ClineSettings = @{}
+        
+        if ($null -eq $ExistingValue) {
+            Write-Log "No existing Cline configuration found, creating new entry"
+            # Create default structure
+            $ClineSettings = @{
+                actModeApiProvider = "lmstudio"
+                planModeApiProvider = "lmstudio"
+                actModeLmStudioModelId = $LmStudioConfig.modelId
+                planModeLmStudioModelId = $LmStudioConfig.modelId
+                lmStudioBaseUrl = $LmStudioConfig.baseUrl
+                lmStudioMaxTokens = $LmStudioConfig.maxTokens
+            }
+        } else {
+            Write-Log "Found existing Cline configuration, updating LM Studio fields"
+            
+            # Parse existing JSON
+            try {
+                $ExistingJson = $ExistingValue | ConvertFrom-Json -AsHashtable
+                $ClineSettings = $ExistingJson
+                Write-Log "Successfully parsed existing Cline configuration"
+            } catch {
+                Write-Log "Could not parse existing configuration, creating new" "WARN"
+                $ClineSettings = @{}
+            }
+            
+            # Update only LM Studio related fields
+            $ClineSettings["actModeApiProvider"] = "lmstudio"
+            $ClineSettings["planModeApiProvider"] = "lmstudio"
+            $ClineSettings["actModeLmStudioModelId"] = $LmStudioConfig.modelId
+            $ClineSettings["planModeLmStudioModelId"] = $LmStudioConfig.modelId
+            $ClineSettings["lmStudioBaseUrl"] = $LmStudioConfig.baseUrl
+            $ClineSettings["lmStudioMaxTokens"] = $LmStudioConfig.maxTokens
+            
+            Write-Log "Updated Cline configuration with LM Studio settings:"
+            Write-Log "  - API Provider: lmstudio"
+            Write-Log "  - Model ID: $($LmStudioConfig.modelId)"
+            Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
+            Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
+        }
+        
+        # Convert back to JSON
+        $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
+        
+        # Save to database using INSERT OR REPLACE
+        $UpdateCommand = $Connection.CreateCommand()
+        $UpdateCommand.CommandText = "INSERT OR REPLACE INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', @value)"
+        $UpdateCommand.Parameters.AddWithValue("@value", $UpdatedJson) | Out-Null
+        $RowsAffected = $UpdateCommand.ExecuteNonQuery()
+        
+        $Connection.Close()
+        
+        if ($RowsAffected -gt 0) {
+            Write-Log "Cline settings updated successfully in database"
+            return $true
+        } else {
+            Write-Log "No rows were updated in database" "WARN"
+            return $false
+        }
+        
+    } catch {
+        Write-Log "Failed to update Cline settings: $_" "ERROR"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" "ERROR"
+        return $false
+    }
+}
+
 # Function to check if software is installed
 function Test-SoftwareInstalled {
     param([string]$Name, [string]$Path)
@@ -334,41 +430,48 @@ $StepTitle = "Configure Cline settings"
 Start-Step -Number $StepNumber -Title $StepTitle
 Write-Log "=== Configuring Cline ==="
 
-$VSCodeSettingsPath = "$env:APPDATA\Code\User"
-if (-not (Test-Path $VSCodeSettingsPath)) {
-    New-Item -ItemType Directory -Path $VSCodeSettingsPath -Force | Out-Null
-    Write-Log "Created VS Code settings directory"
-}
-
-$SettingsFile = Join-Path $VSCodeSettingsPath "settings.json"
-
-# Read existing settings or create new
-$Settings = @{}
-if (Test-Path $SettingsFile) {
-    try {
-        $Settings = Get-Content -Path $SettingsFile -Raw | ConvertFrom-Json -AsHashtable
-        Write-Log "Loaded existing VS Code settings"
-    } catch {
-        Write-Log "Could not parse existing settings, creating new" "WARN"
-        $Settings = @{}
-    }
-}
-
-# Add/Update Cline configuration
-$ClineConfig = $Config.clineConfig
-$Settings["cline.apiProvider"] = $ClineConfig.apiProvider
-$Settings["cline.lmstudioUrl"] = $ClineConfig.lmstudioUrl
-$Settings["cline.modelId"] = $ClineConfig.modelName
-$Settings["cline.temperature"] = $ClineConfig.temperature
-$Settings["cline.maxTokens"] = $ClineConfig.maxTokens
-
-# Save settings
 try {
-    $Settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsFile -Encoding UTF8
-    Write-Log "Cline configuration saved to: $SettingsFile"
-    Complete-Step -Number $StepNumber -Title $StepTitle
+    # VS Code stores extension state in SQLite database
+    $VSCodeGlobalStatePath = "$env:APPDATA\Code\User\globalStorage"
+    $StateDbPath = Join-Path $VSCodeGlobalStatePath "state.vscdb"
+    
+    if (-not (Test-Path $StateDbPath)) {
+        Write-Log "VS Code state database not found at: $StateDbPath" "WARN"
+        Write-Log "Database will be created when VS Code first runs with Cline extension"
+        Write-Log "Skipping Cline configuration - you'll need to configure it manually in VS Code"
+        Complete-Step -Number $StepNumber -Title $StepTitle -Status "Skipped: Database not found"
+    } else {
+        Write-Log "Found VS Code state database: $StateDbPath"
+        
+        # Prepare LM Studio configuration
+        $ClineConfig = $Config.clineConfig
+        $LmStudioConfig = @{
+            modelId = $ClineConfig.modelName
+            baseUrl = $ClineConfig.lmstudioUrl
+            maxTokens = $ClineConfig.maxTokens
+        }
+        
+        Write-Log "LM Studio configuration:"
+        Write-Log "  - Model: $($LmStudioConfig.modelId)"
+        Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
+        Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
+        
+        # Update Cline settings in database
+        $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig
+        
+        if ($UpdateResult) {
+            Write-Log "Cline configuration saved successfully"
+            Complete-Step -Number $StepNumber -Title $StepTitle
+        } else {
+            Write-Log "Failed to save Cline configuration automatically" "WARN"
+            Write-Log "You will need to configure Cline manually in VS Code" "WARN"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Completed with warning: Manual config needed"
+        }
+    }
 } catch {
-    Write-Log "Failed to save Cline configuration: $_" "ERROR"
+    Write-Log "Failed to configure Cline: $_" "ERROR"
+    Write-Log "Error details: $($_.Exception.Message)" "ERROR"
+    Write-Log "You will need to configure Cline manually in VS Code"
     Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: $($_.Exception.Message)"
 }
 
