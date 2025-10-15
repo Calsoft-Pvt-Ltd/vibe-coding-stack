@@ -555,11 +555,30 @@ if ($Config.components.lmstudio.enabled) {
     Write-Log "=== Installing LM Studio ==="
     
     $LMStudioPath = [Environment]::ExpandEnvironmentVariables($Config.components.lmstudio.installPath)
+    $LMStudioExe = "$LMStudioPath\LM Studio.exe"
     
-    if (Test-SoftwareInstalled "LM Studio" "$LMStudioPath\LM Studio.exe") {
-        Write-Log "LM Studio already installed, skipping..."
+    # Check multiple possible installation paths
+    $AlternatePaths = @(
+        $LMStudioExe,
+        "$env:LOCALAPPDATA\Programs\LM Studio\LM Studio.exe",
+        "$env:ProgramFiles\LM Studio\LM Studio.exe",
+        "${env:ProgramFiles(x86)}\LM Studio\LM Studio.exe"
+    )
+    
+    $LMStudioFound = $false
+    foreach ($Path in $AlternatePaths) {
+        if (Test-Path $Path) {
+            Write-Log "LM Studio found at: $Path"
+            $LMStudioFound = $true
+            break
+        }
+    }
+    
+    if ($LMStudioFound) {
+        Write-Log "LM Studio already installed, skipping download and installation..."
         Complete-Step -Number $StepNumber -Title $StepTitle -Status "Already installed"
     } else {
+        Write-Log "LM Studio not found, proceeding with download and installation..."
         $LMStudioInstaller = Join-Path $TempDir "LMStudioSetup.exe"
         
         if (Download-File -Url $Config.components.lmstudio.downloadUrl -OutputPath $LMStudioInstaller -Description "LM Studio") {
