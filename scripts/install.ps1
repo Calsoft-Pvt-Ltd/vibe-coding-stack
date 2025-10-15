@@ -91,21 +91,102 @@ function Download-File {
     }
 }
 
+# Function to install System.Data.SQLite from NuGet
+function Install-SystemDataSQLite {
+    param(
+        [string]$TempDir
+    )
+    
+    try {
+        Write-Log "Attempting to install System.Data.SQLite..."
+        
+        # Download System.Data.SQLite NuGet package
+        $SqliteVersion = "1.0.118"
+        $NuGetUrl = "https://www.nuget.org/api/v2/package/System.Data.SQLite.Core/$SqliteVersion"
+        $NuGetZip = Join-Path $TempDir "System.Data.SQLite.zip"
+        $SqliteExtractPath = Join-Path $TempDir "sqlite"
+        
+        Write-Log "Downloading System.Data.SQLite from NuGet..."
+        $WebClient = New-Object System.Net.WebClient
+        $WebClient.DownloadFile($NuGetUrl, $NuGetZip)
+        Write-Log "Downloaded System.Data.SQLite package"
+        
+        # Extract the NuGet package (it's a ZIP file)
+        if (Test-Path $SqliteExtractPath) {
+            Remove-Item -Path $SqliteExtractPath -Recurse -Force
+        }
+        
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($NuGetZip, $SqliteExtractPath)
+        Write-Log "Extracted System.Data.SQLite package"
+        
+        # Determine architecture
+        if ([Environment]::Is64BitProcess) {
+            $Architecture = "x64"
+        } else {
+            $Architecture = "x86"
+        }
+        
+        # Find the correct DLL path
+        $DllPath = Join-Path $SqliteExtractPath "lib\net46\System.Data.SQLite.dll"
+        $InteropDllPath = Join-Path $SqliteExtractPath "build\net46\$Architecture\SQLite.Interop.dll"
+        
+        if (-not (Test-Path $DllPath)) {
+            Write-Log "Could not find System.Data.SQLite.dll at expected path" "ERROR"
+            return $false
+        }
+        
+        # Load the assembly
+        [System.Reflection.Assembly]::LoadFrom($DllPath) | Out-Null
+        Write-Log "Successfully loaded System.Data.SQLite from NuGet package"
+        
+        # Copy the native interop DLL if it exists
+        if (Test-Path $InteropDllPath) {
+            $TargetInteropPath = Join-Path (Split-Path $DllPath -Parent) "SQLite.Interop.dll"
+            Copy-Item -Path $InteropDllPath -Destination $TargetInteropPath -Force
+            Write-Log "Copied native SQLite.Interop.dll"
+        }
+        
+        return $true
+        
+    } catch {
+        Write-Log "Failed to install System.Data.SQLite: $_" "ERROR"
+        return $false
+    }
+}
+
 # Function to update Cline settings in VS Code SQLite database
 function Update-ClineSettings {
     param(
         [string]$StateDbPath,
-        [hashtable]$LmStudioConfig
+        [hashtable]$LmStudioConfig,
+        [string]$TempDir
     )
     
     try {
         # Try to load System.Data.SQLite
+        $SqliteLoaded = $false
         try {
             Add-Type -AssemblyName "System.Data.SQLite" -ErrorAction Stop
             Write-Log "Using System.Data.SQLite assembly"
+            $SqliteLoaded = $true
         } catch {
-            Write-Log "System.Data.SQLite not available" "ERROR"
-            Write-Log "Please ensure .NET Framework or System.Data.SQLite is installed" "ERROR"
+            Write-Log "System.Data.SQLite not available in GAC, attempting to install..." "WARN"
+            
+            # Try to install from NuGet
+            $InstallResult = Install-SystemDataSQLite -TempDir $TempDir
+            
+            if ($InstallResult) {
+                $SqliteLoaded = $true
+            } else {
+                Write-Log "Failed to install System.Data.SQLite automatically" "ERROR"
+                Write-Log "Please install manually: Install-Package System.Data.SQLite.Core" "ERROR"
+                return $false
+            }
+        }
+        
+        if (-not $SqliteLoaded) {
+            Write-Log "System.Data.SQLite could not be loaded" "ERROR"
             return $false
         }
         
@@ -457,7 +538,7 @@ try {
         Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
         
         # Update Cline settings in database
-        $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig
+        $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -TempDir $TempDir
         
         if ($UpdateResult) {
             Write-Log "Cline configuration saved successfully"
