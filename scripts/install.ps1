@@ -1,17 +1,27 @@
 # Local Vibe Coding Stack - Installation Script
 # This script automates the installation of VS Code, Cline, LM Studio, and AI model
 
-#Requires -RunAsAdministrator
-
 param(
     [string]$ConfigPath = "$PSScriptRoot\..\assets\installer-config.json",
     [switch]$OfflineMode = $false,
     [switch]$SkipModelDownload = $false
 )
 
-# Set error handling
-$ErrorActionPreference = "Stop"
+# Set error handling - Continue on errors but log them
+$ErrorActionPreference = "Continue"
 $ProgressPreference = 'SilentlyContinue'
+
+# Trap for unhandled errors
+trap {
+    Write-Host "FATAL ERROR: $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+    if ($LogFile) {
+        "FATAL ERROR: $_" | Add-Content -Path $LogFile -ErrorAction SilentlyContinue
+        $_.ScriptStackTrace | Add-Content -Path $LogFile -ErrorAction SilentlyContinue
+    }
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 
 # Initialize logging
 $LogFile = "$env:TEMP\LocalVibeCodingStack-install.log"
@@ -70,14 +80,27 @@ function Complete-Step {
 
 Write-Log "=== Local Vibe Coding Stack Installation Started ==="
 Write-Log "Log file: $LogFile"
+Write-Log "Script path: $PSScriptRoot"
+Write-Log "Config path: $ConfigPath"
 
 # Load configuration
 try {
     Write-Log "Loading configuration from: $ConfigPath"
-    $Config = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
+    
+    if (-not (Test-Path $ConfigPath)) {
+        throw "Configuration file not found at: $ConfigPath"
+    }
+    
+    $Config = Get-Content -Path $ConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
     Write-Log "Configuration loaded successfully"
 } catch {
     Write-Log "Failed to load configuration: $_" "ERROR"
+    Write-Log "Config file path: $ConfigPath" "ERROR"
+    Write-Log "Current directory: $PWD" "ERROR"
+    Write-Host ""
+    Write-Host "ERROR: Cannot load configuration file!" -ForegroundColor Red
+    Write-Host "Looking for: $ConfigPath" -ForegroundColor Yellow
+    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -1049,6 +1072,14 @@ Write-Host ""
 Write-Host "Installation log: $LogFile" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Press any key to close this window..." -ForegroundColor Cyan
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+try {
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+} catch {
+    # If ReadKey fails (e.g., non-interactive), just wait 10 seconds
+    Start-Sleep -Seconds 10
+}
 
 Write-Log "Installation script completed successfully"
+
+# Exit with success code
+exit 0

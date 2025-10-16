@@ -82,6 +82,19 @@
         <RemoveFolder Id="RemoveINSTALLFOLDER" Directory="INSTALLFOLDER" On="uninstall"/>
       </Component>
 
+      <!-- Installation wrapper batch script -->
+      <Component Id="InstallWrapperScript" Guid="77777777-7777-7777-7777-777777777777">
+        <File Id="InstallWrapperBat" 
+              Source="scripts\install-wrapper.bat" 
+              DiskId="1" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\LocalVibe\CodingStack" 
+                       Name="InstallWrapper" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes"/>
+      </Component>
+
       <!-- Uninstallation script -->
       <Component Id="UninstallScript" Guid="22222222-2222-2222-2222-222222222222">
         <File Id="UninstallPS1" 
@@ -122,7 +135,7 @@
       </Component>
 
       <!-- Directory cleanup -->
-      <Component Id="CleanupDirectories" Guid="77777777-7777-7777-7777-777777777777">
+      <Component Id="CleanupDirectories" Guid="88888888-8888-8888-8888-888888888888">
         <RemoveFile Id="RemoveScriptsFiles" Directory="ScriptsFolder" Name="*.*" On="uninstall" />
         <RemoveFolder Id="RemoveScriptsFolder" Directory="ScriptsFolder" On="uninstall" />
         <RemoveFile Id="RemoveAssetsFiles" Directory="AssetsFolder" Name="*.*" On="uninstall" />
@@ -188,13 +201,14 @@
                   Execute="immediate" />
     
     <!-- Run installation script after files are installed -->
-    <!-- Console window will remain visible until user closes it (pause in PowerShell script) -->
+    <!-- Uses batch wrapper for better error handling and visible console -->
+    <!-- Return="ignore" allows installer to continue even if script has issues (for debugging) -->
     <CustomAction Id="RunInstallScript"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="cmd.exe /c &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot;&quot;"
+                  ExeCommand="cmd.exe /c &quot;[INSTALLFOLDER]scripts\install-wrapper.bat&quot;"
                   Execute="deferred"
                   Impersonate="yes"
-                  Return="check" />
+                  Return="ignore" />
 
     <!-- Run uninstallation script before uninstall -->
     <CustomAction Id="RunUninstallScript"
