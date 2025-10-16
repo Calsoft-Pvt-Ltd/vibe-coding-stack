@@ -13,11 +13,43 @@ An automated Windows installer that sets up a complete local AI code assistant e
 ## Prerequisites
 
 - Windows 10/11 (64-bit)
-- Administrator privileges
 - 10GB+ free disk space (for models)
 - Internet connection (for initial download)
+- **No administrator privileges required!**
 
-## Building the Installer
+## Quick Start (EXE Installer - Recommended)
+
+### Building the EXE
+
+1. **Using IExpress (Built into Windows, no tools needed):**
+   ```powershell
+   .\build-exe-iexpress.ps1
+   ```
+
+2. **Using PS2EXE (Better compression):**
+   ```powershell
+   Install-Module -Name ps2exe -Scope CurrentUser -Force
+   .\build-exe.ps1
+   ```
+
+The EXE will be created in `.\dist\LocalVibeCodingStack-Setup.exe`
+
+### Installing
+
+Simply double-click the EXE:
+```
+LocalVibeCodingStack-Setup.exe
+```
+
+**No admin rights needed!** The installer shows a visible console window with progress.
+
+For detailed EXE build instructions, see [BUILD_EXE.md](docs/BUILD_EXE.md)
+
+---
+
+## Alternative: MSI Installer
+
+If you need MSI format for enterprise deployment:
 
 ### Requirements
 
@@ -31,18 +63,23 @@ An automated Windows installer that sets up a complete local AI code assistant e
 ### Build Steps
 
 ```powershell
-# Clone the repository
-git clone https://github.com/yourusername/local-vibe-coding-stack.git
-cd local-vibe-coding-stack
-
 # Build the MSI
 .\build.ps1
 ```
 
 The MSI installer will be generated in the `output` directory.
 
+**Note**: MSI has some limitations (see [INSTALLER_FIXES.md](INSTALLER_FIXES.md)). EXE is recommended for most users.
+
 ## Installation
 
+### EXE (Recommended)
+1. Run `LocalVibeCodingStack-Setup.exe`
+2. Read the welcome screen and press Enter
+3. Watch the progress in the console window
+4. Press any key when installation completes
+
+### MSI (Enterprise)
 1. Run `LocalVibeCodingStack.msi`
 2. Follow the installation wizard
 3. Wait for all components to download and install (15-30 minutes)
