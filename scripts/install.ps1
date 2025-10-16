@@ -462,36 +462,21 @@ function Update-ClineSettingsWithCLI {
         $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
         
         Write-Log "Generated JSON configuration (length: $($UpdatedJson.Length) chars)"
+        Write-Log "Saving configuration to database..."
         
-        # Use quote() function in SQLite to properly escape the JSON string
-        # quote() handles all special characters and preserves the string exactly
-        Write-Log "Saving configuration to database using quote() function..."
+        # Use proper multi-line here-string with double quote escaping
+        # In SQL, double quotes need to be doubled, backslashes need escaping
+        $JsonForSql = $UpdatedJson -replace '\\', '\\' -replace '"', '""'
         
-        # First, write JSON to a temp file
-        $TempJsonFile = Join-Path $env:TEMP "cline-config-temp.json"
-        $UpdatedJson | Set-Content -Path $TempJsonFile -Encoding UTF8 -NoNewline
-        
-        # Create SQL script that reads the file content and uses quote()
-        $SqlScript = @"
+        $SqlCommand = @"
 DELETE FROM ItemTable WHERE key = 'saoudrizwan.claude-dev';
-INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', readfile('$($TempJsonFile -replace '\\', '/')'));
+INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', "$JsonForSql");
 "@
         
-        # Write script to temp file
-        $TempSqlFile = Join-Path $env:TEMP "cline-update-temp.sql"
-        $SqlScript | Set-Content -Path $TempSqlFile -Encoding UTF8
+        Write-Log "Executing SQL via stdin..."
         
-        Write-Log "Executing SQL script..."
-        # Execute SQL script
-        $UpdateResult = & $Sqlite3Path $StateDbPath ".read `"$TempSqlFile`"" 2>&1
-        
-        # Clean up temp files
-        if (Test-Path $TempJsonFile) { 
-            Remove-Item -Path $TempJsonFile -Force -ErrorAction SilentlyContinue 
-        }
-        if (Test-Path $TempSqlFile) { 
-            Remove-Item -Path $TempSqlFile -Force -ErrorAction SilentlyContinue 
-        }
+        # Pipe SQL directly to sqlite3 via stdin
+        $UpdateResult = $SqlCommand | & $Sqlite3Path $StateDbPath 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             Write-Log "Cline settings updated successfully using SQLite3 CLI"
@@ -501,13 +486,14 @@ INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', readfile('$
             $VerifyResult = & $Sqlite3Path $StateDbPath $VerifyQuery 2>&1
             Write-Log "Verification: Saved JSON length = $($VerifyResult.Length) chars"
             
-            # Check if JSON is valid by attempting to parse it
+            # Check if JSON is valid
             try {
                 $VerifyResult | ConvertFrom-Json | Out-Null
-                Write-Log "Verification: Saved JSON is valid and parseable"
+                Write-Log "SUCCESS: Saved JSON is valid and parseable"
             } catch {
-                Write-Log "WARNING: Saved JSON may be corrupted: $_" "WARN"
-                Write-Log "First 200 chars of saved data: $($VerifyResult.Substring(0, [Math]::Min(200, $VerifyResult.Length)))" "WARN"
+                Write-Log "ERROR: Saved JSON is corrupted: $_" "ERROR"
+                Write-Log "First 500 chars: $($VerifyResult.Substring(0, [Math]::Min(500, $VerifyResult.Length)))" "ERROR"
+                return $false
             }
             
             return $true
