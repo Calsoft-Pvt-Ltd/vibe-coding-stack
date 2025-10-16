@@ -65,8 +65,7 @@ Test-Requirement -Name "IExpress (built into Windows)" -Test {
 # Test 4: PS2EXE module (optional)
 $hasPS2EXE = Test-Requirement -Name "PS2EXE module (optional)" -Test {
     $null -ne (Get-Module -ListAvailable -Name ps2exe)
-} -FailureMessage "PS2EXE not installed (optional - IExpress can be used instead)" `
-   -InstallCommand "Install-Module -Name ps2exe -Scope CurrentUser -Force"
+} -FailureMessage "PS2EXE not installed (optional - IExpress can be used instead)" -InstallCommand "Install-Module -Name ps2exe -Scope CurrentUser -Force"
 
 # Test 5: Output directory writable
 Test-Requirement -Name "Output directory writable" -Test {
