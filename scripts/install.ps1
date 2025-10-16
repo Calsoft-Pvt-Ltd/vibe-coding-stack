@@ -464,13 +464,13 @@ function Update-ClineSettingsWithCLI {
         Write-Log "Generated JSON configuration (length: $($UpdatedJson.Length) chars)"
         Write-Log "Saving configuration to database..."
         
-        # Use proper multi-line here-string with double quote escaping
-        # In SQL, double quotes need to be doubled, backslashes need escaping
-        $JsonForSql = $UpdatedJson -replace '\\', '\\' -replace '"', '""'
+        # In SQLite, string literals use SINGLE quotes, not double quotes
+        # Escape single quotes by doubling them
+        $JsonForSql = $UpdatedJson -replace "'", "''"
         
         $SqlCommand = @"
 DELETE FROM ItemTable WHERE key = 'saoudrizwan.claude-dev';
-INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', "$JsonForSql");
+INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', '$JsonForSql');
 "@
         
         Write-Log "Executing SQL via stdin..."
