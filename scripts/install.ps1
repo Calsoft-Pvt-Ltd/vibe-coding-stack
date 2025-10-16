@@ -19,8 +19,16 @@ function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $LogMessage = "[$Timestamp] [$Level] $Message"
-    Write-Host $LogMessage
-    Add-Content -Path $LogFile -Value $LogMessage
+    
+    # Color-code output based on level
+    switch ($Level) {
+        "ERROR" { Write-Host $LogMessage -ForegroundColor Red }
+        "WARN"  { Write-Host $LogMessage -ForegroundColor Yellow }
+        "INFO"  { Write-Host $LogMessage -ForegroundColor Cyan }
+        default { Write-Host $LogMessage }
+    }
+    
+    Add-Content -Path $LogFile -Value $LogMessage -ErrorAction SilentlyContinue
 }
 
 $TotalSteps = 6
@@ -32,8 +40,11 @@ function Start-Step {
     )
 
     $Message = "[Step $Number/$TotalSteps] $Title"
+    Write-Host ""
+    Write-Host "============================================" -ForegroundColor Green
     Write-Log $Message
-    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8
+    Write-Host "============================================" -ForegroundColor Green
+    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 function Complete-Step {
@@ -44,8 +55,17 @@ function Complete-Step {
     )
 
     $Message = "[Step $Number/$TotalSteps] $Title - $Status"
-    Write-Log $Message
-    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8
+    Write-Host ""
+    if ($Status -eq "Completed" -or $Status -like "*Already*") {
+        Write-Host "✓ $Message" -ForegroundColor Green
+    } elseif ($Status -like "*Failed*" -or $Status -like "*Error*") {
+        Write-Host "✗ $Message" -ForegroundColor Red
+    } else {
+        Write-Host "⚠ $Message" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Add-Content -Path $LogFile -Value $Message -ErrorAction SilentlyContinue
+    $Message | Set-Content -Path "$LogFile.step" -Encoding UTF8 -ErrorAction SilentlyContinue
 }
 
 Write-Log "=== Local Vibe Coding Stack Installation Started ==="
@@ -1004,19 +1024,31 @@ try {
 }
 
 # Final instructions
-Write-Log "=== Installation Complete ==="
 Write-Host ""
-Write-Host "============================================" -ForegroundColor Green
-Write-Host "  Local Vibe Coding Stack Installed!" -ForegroundColor Green
-Write-Host "============================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Green -BackgroundColor Black
+Write-Host "  🎉 Installation Complete! 🎉" -ForegroundColor Green -BackgroundColor Black
+Write-Host "============================================" -ForegroundColor Green -BackgroundColor Black
+Write-Host ""
+Write-Host "Components Installed:" -ForegroundColor Cyan
+Write-Host "  ✓ VS Code" -ForegroundColor Green
+Write-Host "  ✓ Cline Extension (Claude AI Assistant)" -ForegroundColor Green
+Write-Host "  ✓ LM Studio" -ForegroundColor Green
+Write-Host "  ✓ AI Model: $($Config.components.model.name)" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Cyan
-Write-Host "1. Launch LM Studio and start the server (http://localhost:1234)"
-Write-Host "2. Load your model in LM Studio: $($Config.components.model.name)"
-Write-Host "3. Open VS Code"
-Write-Host "4. Press Ctrl+Shift+P and type 'Cline' to start"
+Write-Host "  1. Launch LM Studio and start the local server" -ForegroundColor White
+Write-Host "     (Default: http://localhost:1234)" -ForegroundColor Gray
 Write-Host ""
-Write-Host "Installation log saved to: $LogFile" -ForegroundColor Yellow
+Write-Host "  2. Load your model in LM Studio:" -ForegroundColor White
+Write-Host "     $($Config.components.model.name)" -ForegroundColor Gray
 Write-Host ""
+Write-Host "  3. Open VS Code and activate Cline:" -ForegroundColor White
+Write-Host "     Press Ctrl+Shift+P → Type 'Cline'" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Installation log: $LogFile" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Press any key to close this window..." -ForegroundColor Cyan
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
 Write-Log "Installation script completed successfully"

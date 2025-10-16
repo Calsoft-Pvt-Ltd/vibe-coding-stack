@@ -188,12 +188,13 @@
                   Execute="immediate" />
     
     <!-- Run installation script after files are installed -->
+    <!-- Console window will remain visible until user closes it (pause in PowerShell script) -->
     <CustomAction Id="RunInstallScript"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '[INSTALLFOLDER]scripts\install.ps1' -ConfigPath '[INSTALLFOLDER]assets\installer-config.json' *&gt;&amp;1 | Tee-Object -FilePath '[INSTALLFOLDER]logs\install.log'; Write-Host ''; Write-Host 'Installation complete. Press any key to close this window...'; $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') }&quot;"
+                  ExeCommand="cmd.exe /c &quot;powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]scripts\install.ps1&quot; -ConfigPath &quot;[INSTALLFOLDER]assets\installer-config.json&quot;&quot;"
                   Execute="deferred"
-                  Impersonate="no"
-                  Return="ignore" />
+                  Impersonate="yes"
+                  Return="check" />
 
     <!-- Run uninstallation script before uninstall -->
     <CustomAction Id="RunUninstallScript"
