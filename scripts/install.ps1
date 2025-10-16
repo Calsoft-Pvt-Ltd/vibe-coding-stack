@@ -401,7 +401,7 @@ function Install-SystemDataSQLite {
 function Update-ClineSettingsWithCLI {
     param(
         [string]$StateDbPath,
-        [hashtable]$LmStudioConfig,
+        [PSCustomObject]$ClineDefaultConfig,
         [string]$Sqlite3Path
     )
     
@@ -423,7 +423,7 @@ function Update-ClineSettingsWithCLI {
         $ClineSettings = @{}
         
         if ($ReadResult -and $ReadResult.Trim() -ne "") {
-            Write-Log "Found existing Cline configuration"
+            Write-Log "Found existing Cline configuration - will merge with defaults"
             try {
                 # Parse existing JSON (compatible with PowerShell 5.1)
                 $ExistingObject = $ReadResult | ConvertFrom-Json
@@ -434,29 +434,31 @@ function Update-ClineSettingsWithCLI {
                     $ClineSettings[$_.Name] = $_.Value
                 }
                 
-                Write-Log "Successfully parsed existing configuration"
+                Write-Log "Successfully parsed existing configuration with $($ClineSettings.Count) properties"
             } catch {
-                Write-Log "Could not parse existing configuration, creating new" "WARN"
+                Write-Log "Could not parse existing configuration, will use defaults only" "WARN"
                 Write-Log "Parse error: $_" "WARN"
                 $ClineSettings = @{}
             }
         } else {
-            Write-Log "No existing Cline configuration found, creating new entry"
+            Write-Log "No existing Cline configuration found - creating new with complete defaults"
         }
         
-        # Update LM Studio settings
-        $ClineSettings["actModeApiProvider"] = "lmstudio"
-        $ClineSettings["planModeApiProvider"] = "lmstudio"
-        $ClineSettings["actModeLmStudioModelId"] = $LmStudioConfig.modelId
-        $ClineSettings["planModeLmStudioModelId"] = $LmStudioConfig.modelId
-        $ClineSettings["lmStudioBaseUrl"] = $LmStudioConfig.baseUrl
-        $ClineSettings["lmStudioMaxTokens"] = $LmStudioConfig.maxTokens
+        # Merge default configuration into settings (defaults don't overwrite existing)
+        Write-Log "Applying default configuration from clineConfigDefault..."
+        $DefaultPropertiesApplied = 0
+        $ClineDefaultConfig.PSObject.Properties | ForEach-Object {
+            $PropertyName = $_.Name
+            $PropertyValue = $_.Value
+            
+            if (-not $ClineSettings.ContainsKey($PropertyName)) {
+                $ClineSettings[$PropertyName] = $PropertyValue
+                $DefaultPropertiesApplied++
+            }
+        }
         
-        Write-Log "Updated Cline configuration:"
-        Write-Log "  - API Provider: lmstudio"
-        Write-Log "  - Model ID: $($LmStudioConfig.modelId)"
-        Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
-        Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
+        Write-Log "Applied $DefaultPropertiesApplied default properties"
+        Write-Log "Final configuration has $($ClineSettings.Count) properties"
         
         # Convert to JSON
         $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
@@ -514,7 +516,7 @@ INSERT INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', '$JsonForSq
 function Update-ClineSettings {
     param(
         [string]$StateDbPath,
-        [hashtable]$LmStudioConfig,
+        [PSCustomObject]$ClineDefaultConfig,
         [string]$TempDir
     )
     
@@ -559,18 +561,9 @@ function Update-ClineSettings {
         $ClineSettings = @{}
         
         if ($null -eq $ExistingValue) {
-            Write-Log "No existing Cline configuration found, creating new entry"
-            # Create default structure
-            $ClineSettings = @{
-                actModeApiProvider = "lmstudio"
-                planModeApiProvider = "lmstudio"
-                actModeLmStudioModelId = $LmStudioConfig.modelId
-                planModeLmStudioModelId = $LmStudioConfig.modelId
-                lmStudioBaseUrl = $LmStudioConfig.baseUrl
-                lmStudioMaxTokens = $LmStudioConfig.maxTokens
-            }
+            Write-Log "No existing Cline configuration found - creating new with complete defaults"
         } else {
-            Write-Log "Found existing Cline configuration, updating LM Studio fields"
+            Write-Log "Found existing Cline configuration - will merge with defaults"
             
             # Parse existing JSON (compatible with PowerShell 5.1)
             try {
@@ -582,27 +575,29 @@ function Update-ClineSettings {
                     $ClineSettings[$_.Name] = $_.Value
                 }
                 
-                Write-Log "Successfully parsed existing Cline configuration"
+                Write-Log "Successfully parsed existing configuration with $($ClineSettings.Count) properties"
             } catch {
-                Write-Log "Could not parse existing configuration, creating new" "WARN"
+                Write-Log "Could not parse existing configuration, will use defaults only" "WARN"
                 Write-Log "Parse error: $_" "WARN"
                 $ClineSettings = @{}
             }
-            
-            # Update only LM Studio related fields
-            $ClineSettings["actModeApiProvider"] = "lmstudio"
-            $ClineSettings["planModeApiProvider"] = "lmstudio"
-            $ClineSettings["actModeLmStudioModelId"] = $LmStudioConfig.modelId
-            $ClineSettings["planModeLmStudioModelId"] = $LmStudioConfig.modelId
-            $ClineSettings["lmStudioBaseUrl"] = $LmStudioConfig.baseUrl
-            $ClineSettings["lmStudioMaxTokens"] = $LmStudioConfig.maxTokens
-            
-            Write-Log "Updated Cline configuration with LM Studio settings:"
-            Write-Log "  - API Provider: lmstudio"
-            Write-Log "  - Model ID: $($LmStudioConfig.modelId)"
-            Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
-            Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
         }
+        
+        # Merge default configuration into settings (defaults don't overwrite existing)
+        Write-Log "Applying default configuration from clineConfigDefault..."
+        $DefaultPropertiesApplied = 0
+        $ClineDefaultConfig.PSObject.Properties | ForEach-Object {
+            $PropertyName = $_.Name
+            $PropertyValue = $_.Value
+            
+            if (-not $ClineSettings.ContainsKey($PropertyName)) {
+                $ClineSettings[$PropertyName] = $PropertyValue
+                $DefaultPropertiesApplied++
+            }
+        }
+        
+        Write-Log "Applied $DefaultPropertiesApplied default properties"
+        Write-Log "Final configuration has $($ClineSettings.Count) properties"
         
         # Convert back to JSON
         $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
@@ -905,18 +900,25 @@ try {
     } else {
         Write-Log "Found VS Code state database: $StateDbPath"
         
-        # Prepare LM Studio configuration
-        $ClineConfig = $Config.clineConfig
-        $LmStudioConfig = @{
-            modelId = $ClineConfig.modelName
-            baseUrl = $ClineConfig.lmstudioUrl
-            maxTokens = $ClineConfig.maxTokens
+        # Use the complete default configuration from config file
+        Write-Log "Loading complete Cline default configuration from config..."
+        
+        # Get the complete default configuration
+        if ($Config.PSObject.Properties.Name -contains 'clineConfigDefault') {
+            $ClineDefaultConfig = $Config.clineConfigDefault
+            Write-Log "Found clineConfigDefault with $($ClineDefaultConfig.PSObject.Properties.Count) properties"
+        } else {
+            Write-Log "ERROR: clineConfigDefault not found in config file" "ERROR"
+            Complete-Step -Number $StepNumber -Title $StepTitle -Status "Failed: Missing clineConfigDefault"
+            throw "clineConfigDefault not found in installer-config.json"
         }
         
-        Write-Log "LM Studio configuration:"
-        Write-Log "  - Model: $($LmStudioConfig.modelId)"
-        Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
-        Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
+        # Get LM Studio specific config for logging
+        $ClineConfig = $Config.clineConfig
+        Write-Log "LM Studio configuration from clineConfig section:"
+        Write-Log "  - Model: $($ClineConfig.modelName)"
+        Write-Log "  - Base URL: $($ClineConfig.lmstudioUrl)"
+        Write-Log "  - Max Tokens: $($ClineConfig.maxTokens)"
         
         # Try SQLite3 CLI approach first (simpler and more reliable)
         Write-Log "=== Attempting to use SQLite3 CLI method ===" "INFO"
@@ -928,7 +930,7 @@ try {
         if ($Sqlite3Path) {
             Write-Log "SUCCESS: SQLite3 CLI installed successfully at: $Sqlite3Path"
             Write-Log "Using SQLite3 CLI to configure Cline (no .NET method needed)"
-            $UpdateResult = Update-ClineSettingsWithCLI -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -Sqlite3Path $Sqlite3Path
+            $UpdateResult = Update-ClineSettingsWithCLI -StateDbPath $StateDbPath -ClineDefaultConfig $ClineDefaultConfig -Sqlite3Path $Sqlite3Path
             
             if ($UpdateResult) {
                 Write-Log "SUCCESS: Cline configured successfully using SQLite3 CLI"
@@ -938,7 +940,7 @@ try {
         } else {
             Write-Log "WARNING: SQLite3 CLI installation failed" "WARN"
             Write-Log "Falling back to .NET method (will download System.Data.SQLite)" "WARN"
-            $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -LmStudioConfig $LmStudioConfig -TempDir $TempDir
+            $UpdateResult = Update-ClineSettings -StateDbPath $StateDbPath -ClineDefaultConfig $ClineDefaultConfig -TempDir $TempDir
             
             if ($UpdateResult) {
                 Write-Log "SUCCESS: Cline configured successfully using .NET method"

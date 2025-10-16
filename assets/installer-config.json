@@ -31,12 +31,61 @@
       "sha256": ""
     }
   },
+  "clineConfigDefault":{
+    "welcomeViewCompleted": true,
+    "clineVersion": "3.32.7",
+    "lastShownAnnouncementId": "3.32",
+    "planModeApiProvider": "lmstudio",
+    "planModeThinkingBudgetTokens": 1024,
+    "planModeFireworksModelId": "accounts/fireworks/models/kimi-k2-instruct-0905",
+    "actModeApiProvider": "lmstudio",
+    "actModeThinkingBudgetTokens": 1024,
+    "actModeFireworksModelId": "accounts/fireworks/models/kimi-k2-instruct-0905",
+    "sapAiCoreUseOrchestrationMode": true,
+    "ocaMode": "internal",
+    "planModeLmStudioModelId": "deepseek-coder-6.7b-instruct",
+    "actModeLmStudioModelId": "deepseek-coder-6.7b-instruct",
+    "lmStudioMaxTokens": "16384",
+    "lmStudioBaseUrl": "http://localhost:1234/v1",
+    "autoApprovalSettings": {
+      "version": 2,
+      "enabled": true,
+      "actions": {
+        "readFiles": true,
+        "readFilesExternally": false,
+        "editFiles": false,
+        "editFilesExternally": false,
+        "executeSafeCommands": true,
+        "executeAllCommands": false,
+        "useBrowser": false,
+        "useMcp": false
+      },
+      "maxRequests": 20,
+      "enableNotifications": false,
+      "favorites": [
+        "enableAutoApprove",
+        "readFiles",
+        "editFiles"
+      ]
+    },
+    "workspaceRoots": [
+      {
+        "path": "",
+        "name": "",
+        "vcs": "",
+        "commitHash": ""
+      }
+    ],
+    "primaryRootIndex": 0,
+    "globalWorkflowToggles": {},
+    "globalClineRulesToggles": {}
+  },
   "clineConfig": {
     "apiProvider": "lmstudio",
     "lmstudioUrl": "http://localhost:1234/v1",
     "modelName": "deepseek-coder-6.7b-instruct",
     "temperature": 0.7,
-    "maxTokens": 4096
+    "maxTokens": 16384
   },
   "installer": {
     "productName": "Local Vibe Coding Stack",
