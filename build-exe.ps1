@@ -65,19 +65,19 @@ try {
     if (Test-Path $OutputExe) {
         $fileSize = (Get-Item $OutputExe).Length / 1MB
         Write-Host ""
-        Write-Host "✓ EXE built successfully!" -ForegroundColor Green
+        Write-Host "[OK] EXE built successfully!" -ForegroundColor Green
         Write-Host "  Location: $OutputExe" -ForegroundColor White
         Write-Host "  Size: $([math]::Round($fileSize, 2)) MB" -ForegroundColor White
         Write-Host ""
         Write-Host "You can now distribute this EXE file." -ForegroundColor Cyan
         Write-Host "Users simply run it - no MSI, no admin required!" -ForegroundColor Cyan
     } else {
-        Write-Host "✗ Build failed - output file not created" -ForegroundColor Red
+        Write-Host "[FAIL] Build failed - output file not created" -ForegroundColor Red
         exit 1
     }
     
 } catch {
-    Write-Host "✗ Build failed: $_" -ForegroundColor Red
+    Write-Host "[FAIL] Build failed: $_" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Yellow
     exit 1
 }

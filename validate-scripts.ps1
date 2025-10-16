@@ -15,7 +15,7 @@ $AllValid = $true
 
 foreach ($Script in $ScriptsToCheck) {
     if (-not (Test-Path $Script)) {
-        Write-Host "⚠ Skipped: $Script (not found)" -ForegroundColor Yellow
+        Write-Host "[WARN] Skipped: $Script (not found)" -ForegroundColor Yellow
         continue
     }
     
@@ -24,9 +24,9 @@ foreach ($Script in $ScriptsToCheck) {
     try {
         # Try to parse the script
         $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content $Script -Raw), [ref]$null)
-        Write-Host " ✓" -ForegroundColor Green
+        Write-Host " [OK]" -ForegroundColor Green
     } catch {
-        Write-Host " ✗" -ForegroundColor Red
+        Write-Host " [FAIL]" -ForegroundColor Red
         Write-Host "  Error: $_" -ForegroundColor Red
         $AllValid = $false
     }
@@ -34,8 +34,8 @@ foreach ($Script in $ScriptsToCheck) {
 
 Write-Host ""
 if ($AllValid) {
-    Write-Host "✓ All scripts are valid!" -ForegroundColor Green
+    Write-Host "[OK] All scripts are valid!" -ForegroundColor Green
 } else {
-    Write-Host "✗ Some scripts have syntax errors" -ForegroundColor Red
+    Write-Host "[FAIL] Some scripts have syntax errors" -ForegroundColor Red
     exit 1
 }

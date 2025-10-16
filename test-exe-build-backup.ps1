@@ -1,5 +1,5 @@
-# Test EXE Installer Build
-# This script verifies that the standalone installer can be packaged as an EXE
+﻿# Test EXE Installer Build
+# This script tests if the standalone installer can be converted to EXE
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Testing EXE Build Process" -ForegroundColor Cyan
@@ -16,16 +16,16 @@ function Test-Requirement {
         [string]$FailureMessage = "Test failed",
         [string]$InstallCommand = ""
     )
-
+    
     Write-Host "Testing: $Name..." -NoNewline
     try {
         $result = & $Test
         if ($result) {
-            Write-Host " [OK]" -ForegroundColor Green
+            Write-Host " âœ“" -ForegroundColor Green
             $script:TestsPassed++
             return $true
         } else {
-            Write-Host " [FAIL]" -ForegroundColor Red
+            Write-Host " âœ—" -ForegroundColor Red
             Write-Host "  $FailureMessage" -ForegroundColor Yellow
             if ($InstallCommand) {
                 Write-Host "  Install: $InstallCommand" -ForegroundColor Gray
@@ -34,7 +34,7 @@ function Test-Requirement {
             return $false
         }
     } catch {
-        Write-Host " [ERROR]" -ForegroundColor Red
+        Write-Host " âœ—" -ForegroundColor Red
         Write-Host "  Error: $_" -ForegroundColor Yellow
         if ($InstallCommand) {
             Write-Host "  Install: $InstallCommand" -ForegroundColor Gray
@@ -48,19 +48,19 @@ Write-Host "Checking prerequisites..." -ForegroundColor Cyan
 Write-Host ""
 
 # Test 1: PowerShell version
-[void](Test-Requirement -Name "PowerShell 5.1 or newer" -Test {
+Test-Requirement -Name "PowerShell 5.1+" -Test {
     $PSVersionTable.PSVersion.Major -ge 5
-} -FailureMessage "PowerShell 5.1 or higher is required")
+} -FailureMessage "PowerShell 5.1 or higher required"
 
-# Test 2: Standalone installer script present
-[void](Test-Requirement -Name "Standalone installer script" -Test {
+# Test 2: Standalone installer exists
+Test-Requirement -Name "Standalone installer script" -Test {
     Test-Path ".\scripts\standalone-installer.ps1"
-} -FailureMessage "standalone-installer.ps1 not found in scripts folder")
+} -FailureMessage "standalone-installer.ps1 not found in scripts folder"
 
 # Test 3: IExpress available (built into Windows)
-[void](Test-Requirement -Name "IExpress (built into Windows)" -Test {
+Test-Requirement -Name "IExpress (built into Windows)" -Test {
     $null -ne (Get-Command iexpress.exe -ErrorAction SilentlyContinue)
-} -FailureMessage "IExpress not found (should be available on Windows)")
+} -FailureMessage "IExpress not found (should be in Windows)"
 
 # Test 4: PS2EXE module (optional)
 $hasPS2EXE = Test-Requirement -Name "PS2EXE module (optional)" -Test {
@@ -68,13 +68,13 @@ $hasPS2EXE = Test-Requirement -Name "PS2EXE module (optional)" -Test {
 } -FailureMessage "PS2EXE not installed (optional - IExpress can be used instead)" -InstallCommand "Install-Module -Name ps2exe -Scope CurrentUser -Force"
 
 # Test 5: Output directory writable
-[void](Test-Requirement -Name "Output directory writable" -Test {
-    $outputDir = ".\dist"
-    if (-not (Test-Path $outputDir)) {
-        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+Test-Requirement -Name "Output directory writable" -Test {
+    $testDir = ".\dist"
+    if (-not (Test-Path $testDir)) {
+        New-Item -ItemType Directory -Path $testDir -Force | Out-Null
     }
-    Test-Path $outputDir -PathType Container
-} -FailureMessage "Cannot create or access the output directory")
+    Test-Path $testDir -PathType Container
+} -FailureMessage "Cannot create output directory"
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -85,11 +85,11 @@ Write-Host "Failed: $TestsFailed" -ForegroundColor $(if ($TestsFailed -eq 0) { "
 Write-Host ""
 
 if ($TestsFailed -eq 0) {
-    Write-Host "All tests passed." -ForegroundColor Green
+    Write-Host "âœ“ All tests passed!" -ForegroundColor Green
     Write-Host ""
     Write-Host "You can build the EXE using:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  Option 1 (IExpress - No additional tools):" -ForegroundColor White
+    Write-Host "  Option 1 (IExpress - No tools needed):" -ForegroundColor White
     Write-Host "    .\build-exe-iexpress.ps1" -ForegroundColor Gray
     Write-Host ""
     if ($hasPS2EXE) {
@@ -101,9 +101,10 @@ if ($TestsFailed -eq 0) {
         Write-Host "    .\build-exe.ps1" -ForegroundColor Gray
     }
     Write-Host ""
-
+    
+    # Offer to build now
     $response = Read-Host "Would you like to build the EXE now? (Y/N)"
-    if ($response -match '^(Y|y)$') {
+    if ($response -eq 'Y' -or $response -eq 'y') {
         Write-Host ""
         if ($hasPS2EXE) {
             Write-Host "Building with PS2EXE..." -ForegroundColor Cyan
@@ -114,7 +115,9 @@ if ($TestsFailed -eq 0) {
         }
     }
 } else {
-    Write-Host "Some tests failed." -ForegroundColor Red
+    Write-Host "âœ— Some tests failed" -ForegroundColor Red
+    Write-Host ""
     Write-Host "Please resolve the issues above and try again." -ForegroundColor Yellow
     exit 1
 }
+
