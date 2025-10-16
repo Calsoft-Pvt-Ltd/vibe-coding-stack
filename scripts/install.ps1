@@ -458,20 +458,45 @@ function Update-ClineSettingsWithCLI {
         Write-Log "  - Base URL: $($LmStudioConfig.baseUrl)"
         Write-Log "  - Max Tokens: $($LmStudioConfig.maxTokens)"
         
-        # Convert to JSON (compress and escape for SQL)
+        # Convert to JSON
         $UpdatedJson = $ClineSettings | ConvertTo-Json -Compress -Depth 10
-        # Escape single quotes for SQL by doubling them
-        $UpdatedJsonEscaped = $UpdatedJson -replace "'", "''"
         
-        Write-Log "Saving configuration to database..."
+        Write-Log "Generated JSON configuration (length: $($UpdatedJson.Length) chars)"
         
-        # Use INSERT OR REPLACE to update or create the entry
-        $UpdateQuery = "INSERT OR REPLACE INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', '$UpdatedJsonEscaped');"
+        # Write JSON to a temporary file to avoid command-line escaping issues
+        $TempJsonFile = Join-Path $env:TEMP "cline-config-temp.json"
+        $UpdatedJson | Set-Content -Path $TempJsonFile -Encoding UTF8 -NoNewline
+        Write-Log "Wrote JSON to temp file: $TempJsonFile"
         
-        $UpdateResult = & $Sqlite3Path $StateDbPath $UpdateQuery 2>&1
+        ## Read the JSON as a hex-encoded blob to preserve all characters
+        $JsonBytes = [System.Text.Encoding]::UTF8.GetBytes($UpdatedJson)
+        $JsonHex = ($JsonBytes | ForEach-Object { $_.ToString("X2") }) -join ''
+        
+        Write-Log "Saving configuration to database using hex encoding..."
+        
+        # Use hex encoding to preserve JSON exactly as-is
+        # SQLite3 can insert hex data using X'...' notation
+        $UpdateQuery = "INSERT OR REPLACE INTO ItemTable (key, value) VALUES ('saoudrizwan.claude-dev', X'$JsonHex');"
+        
+        # Write query to file to avoid command-line issues
+        $TempSqlFile = Join-Path $env:TEMP "cline-update-temp.sql"
+        $UpdateQuery | Set-Content -Path $TempSqlFile -Encoding ASCII
+        
+        # Execute SQL from file
+        $UpdateResult = & $Sqlite3Path $StateDbPath ".read `"$TempSqlFile`"" 2>&1
+        
+        # Clean up temp files
+        if (Test-Path $TempJsonFile) { Remove-Item -Path $TempJsonFile -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $TempSqlFile) { Remove-Item -Path $TempSqlFile -Force -ErrorAction SilentlyContinue }
         
         if ($LASTEXITCODE -eq 0) {
             Write-Log "Cline settings updated successfully using SQLite3 CLI"
+            
+            # Verify the saved data
+            $VerifyQuery = "SELECT value FROM ItemTable WHERE key = 'saoudrizwan.claude-dev';"
+            $VerifyResult = & $Sqlite3Path $StateDbPath $VerifyQuery 2>&1
+            Write-Log "Verification: Saved JSON length = $($VerifyResult.Length) chars"
+            
             return $true
         } else {
             Write-Log "Failed to update database. Exit code: $LASTEXITCODE" "ERROR"
