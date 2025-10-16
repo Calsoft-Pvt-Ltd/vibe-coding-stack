@@ -425,12 +425,19 @@ function Update-ClineSettingsWithCLI {
         if ($ReadResult -and $ReadResult.Trim() -ne "") {
             Write-Log "Found existing Cline configuration"
             try {
-                # Parse existing JSON
-                $ExistingJson = $ReadResult | ConvertFrom-Json -AsHashtable
-                $ClineSettings = $ExistingJson
+                # Parse existing JSON (compatible with PowerShell 5.1)
+                $ExistingObject = $ReadResult | ConvertFrom-Json
+                
+                # Convert PSCustomObject to Hashtable manually (PS 5.1 compatible)
+                $ClineSettings = @{}
+                $ExistingObject.PSObject.Properties | ForEach-Object {
+                    $ClineSettings[$_.Name] = $_.Value
+                }
+                
                 Write-Log "Successfully parsed existing configuration"
             } catch {
                 Write-Log "Could not parse existing configuration, creating new" "WARN"
+                Write-Log "Parse error: $_" "WARN"
                 $ClineSettings = @{}
             }
         } else {
@@ -541,13 +548,20 @@ function Update-ClineSettings {
         } else {
             Write-Log "Found existing Cline configuration, updating LM Studio fields"
             
-            # Parse existing JSON
+            # Parse existing JSON (compatible with PowerShell 5.1)
             try {
-                $ExistingJson = $ExistingValue | ConvertFrom-Json -AsHashtable
-                $ClineSettings = $ExistingJson
+                $ExistingObject = $ExistingValue | ConvertFrom-Json
+                
+                # Convert PSCustomObject to Hashtable manually (PS 5.1 compatible)
+                $ClineSettings = @{}
+                $ExistingObject.PSObject.Properties | ForEach-Object {
+                    $ClineSettings[$_.Name] = $_.Value
+                }
+                
                 Write-Log "Successfully parsed existing Cline configuration"
             } catch {
                 Write-Log "Could not parse existing configuration, creating new" "WARN"
+                Write-Log "Parse error: $_" "WARN"
                 $ClineSettings = @{}
             }
             
