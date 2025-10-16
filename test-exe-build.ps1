@@ -114,7 +114,6 @@ if ($TestsFailed -eq 0) {
             & .\build-exe-iexpress.ps1
         }
     }
-    
 } else {
     Write-Host "✗ Some tests failed" -ForegroundColor Red
     Write-Host ""
